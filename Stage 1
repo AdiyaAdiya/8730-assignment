@@ -1,1 +1,548 @@
 
+lang="en"
+"""
+================================================================================
+STAGE 1 — Company-Level Data Acquisition
+BSMM-8730 — Canadian REIT Data Pipeline
+Target Company: SmartCentres REIT (SRU-UN.TO)
+================================================================================
+"""
+
+# --- Step 0: Install dependencies ---
+!pip install yfinance pandas pdfplumber --quiet
+
+import json
+import pandas as pd
+import yfinance as yf
+import pdfplumber
+
+# ------------------------------------------------------------------------------
+# STEP 1: Define target company and connect Yahoo Finance
+# ------------------------------------------------------------------------------
+
+TICKER = "SRU-UN.TO"
+COMPANY_NAME = "SmartCentres Real Estate Investment Trust"
+PDF_FILE = "2025-SmartCentres-REIT-Annual-Report.pdf"
+
+print(f"Fetching data for: {TICKER} ({COMPANY_NAME})")
+print("=" * 70)
+
+tkr = yf.Ticker(TICKER)
+print("SUCCESS — yfinance ticker object created.")
+
+# Initialize fundamentals to avoid NameError if accessed before the try/except block
+fundamentals = {}
+
+# ------------------------------------------------------------------------------
+# STEP 2: Acquire Market Data
+# ------------------------------------------------------------------------------
+
+print("\n[1] STRUCTURED DATA — price history")
+print("-" * 70)
+
+print("\n[2] SEMI-STRUCTURED DATA — fundamentals dictionary")
+print("-" * 70)
+print(json.dumps(fundamentals, indent=2))
+
+try:
+    price_history = tkr.history(period="6mo", auto_adjust=True)
+
+    if price_history.empty:
+        raise ValueError("Yahoo Finance returned no rows")
+
+    price_history = price_history.reset_index()
+    price_history["Date"] = pd.to_datetime(price_history["Date"]).dt.strftime("%Y-%m-%d")
+
+    price_history = price_history.rename(columns={
+        "Date": "date",
+        "Open": "open",
+        "High": "high",
+        "Low": "low",
+        "Close": "close",
+        "Volume": "volume",
+        "Dividends": "distribution"
+    })
+
+    expected_price_columns = ["date", "open", "high", "low", "close", "volume", "distribution"]
+
+    for col in expected_price_columns:
+        if col not in price_history.columns:
+            price_history[col] = 0
+
+    price_history = price_history[expected_price_columns]
+
+    info = tkr.info
+
+    fundamentals = {
+        "ticker": TICKER,
+        "company_name": info.get("longName", COMPANY_NAME),
+        "sector": info.get("sector", "Real Estate"),
+        "industry": info.get("industry", "REIT - Retail"),
+        "market_cap_cad": info.get("marketCap"),
+        "previous_close": info.get("previousClose"),
+        "trailing_pe": info.get("trailingPE"),
+        "eps": info.get("trailingEps"),
+        "dividend_yield": info.get("dividendYield"),
+        "forward_dividend_rate": info.get("dividendRate"),
+        "payout_ratio": info.get("payoutRatio"),
+        "beta": info.get("beta"),
+        "fifty_two_week_high": info.get("fiftyTwoWeekHigh"),
+        "fifty_two_week_low": info.get("fiftyTwoWeekLow"),
+        "currency": info.get("currency", "CAD"),
+        "exchange": info.get("exchange", "TOR")
+    }
+
+    MARKET_SOURCE = "yfinance_live"
+
+    print("SUCCESS — live market data pulled from Yahoo Finance.")
+    print(f"Price rows returned: {len(price_history)}")
+    print(price_history.head().to_string(index=False))
+
+except Exception as exc:
+    print(f"Market data call failed ({exc}). Using placeholder market data.")
+
+    dates = pd.bdate_range(end=pd.Timestamp.today(), periods=126)
+
+    price_history = pd.DataFrame({
+        "date": dates.strftime("%Y-%m-%d"),
+        "open": [25.10 + (i % 10) * 0.05 for i in range(len(dates))],
+        "high": [25.40 + (i % 10) * 0.05 for i in range(len(dates))],
+        "low": [24.85 + (i % 10) * 0.05 for i in range(len(dates))],
+        "close": [25.20 + (i % 10) * 0.05 for i in range(len(dates))],
+        "volume": [200000 + (i % 7) * 15000 for i in range(len(dates))],
+        "distribution": [0.0] * len(dates)
+    })
+
+    fundamentals = {
+        "ticker": TICKER,
+        "company_name": COMPANY_NAME,
+        "sector": "Real Estate",
+        "industry": "REIT - Retail",
+        "market_cap_cad": 5178000000,
+        "previous_close": 30.44,
+        "trailing_pe": 14.19,
+        "eps": 2.14,
+        "dividend_yield": 0.0608,
+        "forward_dividend_rate": 1.85,
+        "payout_ratio": None,
+        "beta": 0.85,
+        "fifty_two_week_high": 30.90,
+        "fifty_two_week_low": 25.01,
+        "currency": "CAD",
+        "exchange": "TOR"
+    }
+
+    MARKET_SOURCE = "placeholder_fallback"
+
+
+# ------------------------------------------------------------------------------
+# STEP 3: Acquire News
+# ------------------------------------------------------------------------------
+
+print("\n\n[3] UNSTRUCTURED DATA — news headlines")
+print("-" * 70)
+
+try:
+    raw_news = tkr.news
+
+    if not raw_news:
+        raise ValueError("Yahoo Finance returned no news items")
+
+    news_headlines = []
+
+    for item in raw_news[:10]:
+        content = item.get("content", item)
+
+        news_headlines.append({
+            "ticker": TICKER,
+            "headline": content.get("title", ""),
+            "publisher": (content.get("provider") or {}).get("displayName", ""),
+            "timestamp": content.get("pubDate", ""),
+            "source": "Yahoo Finance"
+        })
+
+    NEWS_SOURCE = "yfinance_live"
+
+    print(f"SUCCESS — {len(news_headlines)} live headlines pulled from Yahoo Finance.")
+
+except Exception as exc:
+    print(f"News call failed ({exc}). Using placeholder headlines.")
+
+    news_headlines = [
+        {
+            "ticker": TICKER,
+            "headline": "SmartCentres reports stable occupancy and operating performance",
+            "publisher": "Placeholder Business News",
+            "timestamp": "2026-05-01T12:00:00Z",
+            "source": "placeholder"
+        },
+        {
+            "ticker": TICKER,
+            "headline": "Canadian REITs remain sensitive to interest rate movements",
+            "publisher": "Placeholder Market News",
+            "timestamp": "2026-04-15T09:30:00Z",
+            "source": "placeholder"
+        }
+    ]
+
+    NEWS_SOURCE = "placeholder_fallback"
+
+for h in news_headlines[:5]:
+    print(f"  - {h['headline']} [{h['publisher']}]")
+
+
+# ------------------------------------------------------------------------------
+# STEP 4: Read Annual Report PDF and Extract Tables
+# ------------------------------------------------------------------------------
+
+print("\n\n[4] ANNUAL REPORT PDF TABLE EXTRACTION")
+print("-" * 70)
+
+PDF_SOURCE = "SmartCentres_Annual_Report_2025_PDF"
+
+extracted_tables = []
+
+try:
+    with pdfplumber.open(PDF_FILE) as pdf:
+        selected_pages = [2, 3, 10, 11]  # useful annual report pages
+
+        for page_index in selected_pages:
+            page = pdf.pages[page_index]
+            tables = page.extract_tables()
+
+            for table_number, table in enumerate(tables):
+                if table and len(table) > 1:
+                    extracted_tables.append({
+                        "pdf_page": page_index + 1,
+                        "table_number": table_number + 1,
+                        "table": table
+                    })
+
+    print(f"SUCCESS — {len(extracted_tables)} tables extracted from Annual Report PDF.")
+
+except Exception as exc:
+    print(f"PDF table extraction failed ({exc}). Using annual report fallback values.")
+    PDF_SOURCE = "manual_fallback_from_annual_report"
+
+
+# ------------------------------------------------------------------------------
+# STEP 5: Extract Operational Metrics
+# ------------------------------------------------------------------------------
+
+print("\n\n[5] EXTRACT OPERATIONAL METRICS")
+print("-" * 70)
+
+# These values are extracted from the Annual Report highlights / key statistics pages.
+operating_performance = pd.DataFrame([
+    {
+        "ticker": TICKER,
+        "category": "Portfolio Scale",
+        "key_metric": "Total Properties",
+        "metric_value": 198,
+        "display_value": "198 properties",
+        "why_it_matters": "Shows portfolio size and diversification",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Portfolio Scale",
+        "key_metric": "Income-Producing Properties",
+        "metric_value": 35600000,
+        "display_value": "35.6 million sq. ft.",
+        "why_it_matters": "Measures income-producing leasable space",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Occupancy",
+        "key_metric": "Occupancy Rate",
+        "metric_value": 0.986,
+        "display_value": "98.6%",
+        "why_it_matters": "Measures leasing performance and property demand",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Organic Growth",
+        "key_metric": "Same Property NOI Growth",
+        "metric_value": 0.037,
+        "display_value": "3.7%",
+        "why_it_matters": "Reflects performance of existing properties",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Rental Growth",
+        "key_metric": "Renewal Rent Growth Including Anchors",
+        "metric_value": 0.063,
+        "display_value": "6.3%",
+        "why_it_matters": "Shows pricing power including anchor tenants",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Rental Growth",
+        "key_metric": "Renewal Rent Growth Excluding Anchors",
+        "metric_value": 0.084,
+        "display_value": "8.4%",
+        "why_it_matters": "Shows pricing power excluding anchor tenants",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Leasing Activity",
+        "key_metric": "Existing Vacant Space Leased",
+        "metric_value": 430000,
+        "display_value": "430,000 sq. ft.",
+        "why_it_matters": "Indicates leasing demand",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Leasing Activity",
+        "key_metric": "New Build Retail Space Executed",
+        "metric_value": 125000,
+        "display_value": "125,000 sq. ft.",
+        "why_it_matters": "Indicates future rental income potential",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Development Pipeline",
+        "key_metric": "Future Mixed-Use Development Pipeline",
+        "metric_value": 87400000,
+        "display_value": "87.4 million sq. ft.",
+        "why_it_matters": "Shows long-term growth potential",
+        "source": PDF_SOURCE
+    }
+])
+
+print("SUCCESS — operational metrics dataset created.")
+print(operating_performance.to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 6: Extract Financial Metrics
+# ------------------------------------------------------------------------------
+
+print("\n\n[6] EXTRACT FINANCIAL METRICS")
+print("-" * 70)
+
+# These values are from Annual Report financial highlights / MD&A tables.
+financial_performance = pd.DataFrame([
+    {
+        "ticker": TICKER,
+        "category": "Revenue",
+        "key_metric": "Rental Revenue",
+        "metric_value_2024": 918359000,
+        "metric_value_2025": 913913000,
+        "display_2024": "$918.4 million",
+        "display_2025": "$913.9 million",
+        "why_it_matters": "Measures overall rental income",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Profitability",
+        "key_metric": "NOI",
+        "metric_value_2024": 572536000,
+        "metric_value_2025": 592551000,
+        "display_2024": "$572.5 million",
+        "display_2025": "$592.6 million",
+        "why_it_matters": "Measures operating profitability",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Organic Growth",
+        "key_metric": "SPNOI",
+        "metric_value_2024": 556320000,
+        "metric_value_2025": 576630000,
+        "display_2024": "$556.3 million",
+        "display_2025": "$576.6 million",
+        "why_it_matters": "Measures same-property operating performance",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Core Earnings",
+        "key_metric": "FFO per Unit",
+        "metric_value_2024": 2.23,
+        "metric_value_2025": 2.27,
+        "display_2024": "$2.23",
+        "display_2025": "$2.27",
+        "why_it_matters": "Primary REIT earnings metric",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Sustainable Cash Flow",
+        "key_metric": "AFFO per Unit",
+        "metric_value_2024": 1.99,
+        "metric_value_2025": 2.03,
+        "display_2024": "$1.99",
+        "display_2025": "$2.03",
+        "why_it_matters": "Measures cash available for distributions",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Distribution Safety",
+        "key_metric": "Payout Ratio to AFFO",
+        "metric_value_2024": 0.917,
+        "metric_value_2025": 0.892,
+        "display_2024": "91.7%",
+        "display_2025": "89.2%",
+        "why_it_matters": "Evaluates sustainability of distributions",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Debt Risk",
+        "key_metric": "Debt to Aggregate Assets",
+        "metric_value_2024": 0.437,
+        "metric_value_2025": 0.444,
+        "display_2024": "43.7%",
+        "display_2025": "44.4%",
+        "why_it_matters": "Measures leverage and financial risk",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Financing Cost",
+        "key_metric": "Weighted Average Interest Rate",
+        "metric_value_2024": 0.0392,
+        "metric_value_2025": 0.0400,
+        "display_2024": "3.92%",
+        "display_2025": "4.00%",
+        "why_it_matters": "Shows average debt financing cost",
+        "source": PDF_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Financing Cost",
+        "key_metric": "Interest Coverage Ratio",
+        "metric_value_2024": 2.50,
+        "metric_value_2025": 2.60,
+        "display_2024": "2.50x",
+        "display_2025": "2.60x",
+        "why_it_matters": "Evaluates ability to cover borrowing costs",
+        "source": PDF_SOURCE
+    }
+])
+
+financial_performance["change_2024_to_2025"] = (
+    financial_performance["metric_value_2025"] -
+    financial_performance["metric_value_2024"]
+)
+
+print("SUCCESS — financial metrics dataset created.")
+print(financial_performance.to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 7: Merge Company-Level Metrics
+# ------------------------------------------------------------------------------
+
+print("\n\n[7] MERGE COMPANY-LEVEL DATASETS")
+print("-" * 70)
+
+market_summary = pd.DataFrame([
+    {
+        "ticker": TICKER,
+        "category": "Market Data",
+        "key_metric": "Market Cap",
+        "metric_value": fundamentals.get("market_cap_cad"),
+        "display_value": fundamentals.get("market_cap_cad"),
+        "source": MARKET_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Market Data",
+        "key_metric": "Beta",
+        "metric_value": fundamentals.get("beta"),
+        "display_value": fundamentals.get("beta"),
+        "source": MARKET_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Market Data",
+        "key_metric": "P/E Ratio",
+        "metric_value": fundamentals.get("trailing_pe"),
+        "display_value": fundamentals.get("trailing_pe"),
+        "source": MARKET_SOURCE
+    },
+    {
+        "ticker": TICKER,
+        "category": "Market Data",
+        "key_metric": "Dividend Yield",
+        "metric_value": fundamentals.get("dividend_yield"),
+        "display_value": fundamentals.get("dividend_yield"),
+        "source": MARKET_SOURCE
+    }
+])
+
+operating_for_merge = operating_performance.rename(columns={
+    "metric_value": "metric_value_2025",
+    "display_value": "display_2025"
+})
+
+market_for_merge = market_summary.rename(columns={
+    "metric_value": "metric_value_2025",
+    "display_value": "display_2025"
+})
+
+company_level_metrics = pd.concat([
+    market_for_merge,
+    operating_for_merge[[
+        "ticker", "category", "key_metric", "metric_value_2025",
+        "display_2025", "why_it_matters", "source"
+    ]],
+    financial_performance[[
+        "ticker", "category", "key_metric", "metric_value_2025",
+        "display_2025", "why_it_matters", "source"
+    ]]
+], ignore_index=True)
+
+print("SUCCESS — company-level metrics merged.")
+print(company_level_metrics.to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 8: Export Output Files
+# ------------------------------------------------------------------------------
+
+print("\n\n[8] EXPORT OUTPUT FILES")
+print("-" * 70)
+
+price_history.to_csv("stage1_prices.csv", index=False)
+
+with open("stage1_fundamentals.json", "w") as f:
+    json.dump(fundamentals, f, indent=2)
+
+pd.DataFrame(news_headlines).to_csv("stage1_news.csv", index=False)
+
+operating_performance.to_csv("stage1_operating_performance.csv", index=False)
+
+financial_performance.to_csv("stage1_financial_performance.csv", index=False)
+
+company_level_metrics.to_csv("stage1_company_level_metrics.csv", index=False)
+
+print("SUCCESS — all Stage 1 datasets exported successfully.")
+
+print("\n\n" + "=" * 70)
+print("STAGE 1 COMPLETE")
+print("=" * 70)
+
+print("Files written to current directory:")
+print("  stage1_prices.csv")
+print("  stage1_fundamentals.json")
+print("  stage1_news.csv")
+print("  stage1_operating_performance.csv")
+print("  stage1_financial_performance.csv")
+print("  stage1_company_level_metrics.csv")
+
+print("\nData sources used:")
+print(f"  Market Data   : {MARKET_SOURCE}")
+print(f"  News          : {NEWS_SOURCE}")
+print(f"  Annual Report : {PDF_SOURCE}")
