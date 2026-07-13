@@ -1,1 +1,1008 @@
+"""
+================================================================================
+STAGE 4 (STANDALONE) — MongoDB Integration and Querying
+BSMM-8730 — Canadian REIT Data Pipeline
+Target Company: SmartCentres REIT (SRU-UN.TO)
+================================================================================
 
+WHAT THIS SCRIPT DOES:
+
+Loads the output files created in Stages 1–3 and stores them in MongoDB Atlas.
+
+Stage 1 inputs:
+    stage1_prices.csv
+    stage1_fundamentals.json
+    stage1_news.csv
+    stage1_operating_performance.csv
+    stage1_financial_performance.csv
+    stage1_company_level_metrics.csv
+
+Stage 2 input:
+    competitor_analysis.csv
+
+Stage 3 inputs:
+    stage3_macroeconomic_indicators.csv
+    stage3_annual_macro_summary.csv
+
+This script demonstrates:
+
+    1. Connecting Python to MongoDB Atlas
+    2. Loading CSV and JSON files
+    3. Converting pandas DataFrames into MongoDB documents
+    4. Creating MongoDB collections
+    5. Inserting data into MongoDB
+    6. Creating indexes
+    7. Running sample database queries
+    8. Retrieving MongoDB data for visualization
+
+This Stage focuses on database integration and querying.
+Statistical analysis and correlation are completed separately.
+================================================================================
+"""
+
+# ------------------------------------------------------------------------------
+# STEP 0: Install required packages
+# ------------------------------------------------------------------------------
+
+# Remove the # below when running for the first time in Google Colab.
+
+!pip install pymongo certifi pandas matplotlib --quiet
+
+
+# ------------------------------------------------------------------------------
+# Import libraries
+# ------------------------------------------------------------------------------
+
+import os
+import json
+import getpass
+from pprint import pprint
+
+import certifi
+import pandas as pd
+import matplotlib.pyplot as plt
+
+from pymongo import MongoClient, ASCENDING, DESCENDING
+
+
+# ------------------------------------------------------------------------------
+# STEP 1: Connect to MongoDB Atlas
+# ------------------------------------------------------------------------------
+
+print("STAGE 4 — MongoDB Integration and Querying")
+print("=" * 70)
+
+print("\n[1] CONNECTING TO MONGODB ATLAS")
+print("-" * 70)
+
+# The connection string is entered securely and is not displayed in the notebook.
+MONGO_URI = getpass.getpass(
+    "Paste your MongoDB Atlas connection string: "
+)
+
+DB_NAME = "smartcentres_reit_analysis"
+
+try:
+    client = MongoClient(
+        MONGO_URI,
+        tls=True,
+        tlsCAFile=certifi.where(),
+        serverSelectionTimeoutMS=30000
+    )
+
+    # Send a small command to confirm that the connection is working.
+    client.admin.command("ping")
+
+    # Select the project database.
+    db = client[DB_NAME]
+
+    print("SUCCESS — connected to MongoDB Atlas.")
+    print(f"Database selected: {DB_NAME}")
+
+except Exception as exc:
+    print(f"MongoDB connection failed: {exc}")
+    raise
+
+
+# ------------------------------------------------------------------------------
+# STEP 2: Define MongoDB collections
+# ------------------------------------------------------------------------------
+
+print("\n\n[2] PREPARING MONGODB COLLECTIONS")
+print("-" * 70)
+
+collections = {
+    "prices": db["reit_prices"],
+    "fundamentals": db["reit_fundamentals"],
+    "news": db["reit_news"],
+    "operating": db["reit_operating_performance"],
+    "financial": db["reit_financial_performance"],
+    "company_metrics": db["reit_company_level_metrics"],
+    "competitors": db["reit_competitors"],
+    "macro_daily": db["macro_indicators"],
+    "macro_annual": db["macro_annual_summary"]
+}
+
+print("Collections prepared:")
+
+for short_name, collection in collections.items():
+    print(f"  {short_name:<18} -> {collection.name}")
+
+
+# ------------------------------------------------------------------------------
+# STEP 3: Define helper functions
+# ------------------------------------------------------------------------------
+
+print("\n\n[3] DEFINING HELPER FUNCTIONS")
+print("-" * 70)
+
+
+def require_file(file_name):
+    """
+    Check whether a required file exists.
+
+    If the file does not exist, stop the program and display a clear message.
+    """
+
+    if not os.path.exists(file_name):
+        raise FileNotFoundError(
+            f"{file_name} was not found. "
+            f"Run the relevant earlier stage before running Stage 4."
+        )
+
+
+def load_csv(file_name):
+    """
+    Load a CSV file into a pandas DataFrame.
+    """
+
+    require_file(file_name)
+    return pd.read_csv(file_name)
+
+
+def load_json(file_name):
+    """
+    Load a JSON file into a Python dictionary.
+    """
+
+    require_file(file_name)
+
+    with open(file_name, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def clean_dataframe_for_mongo(df):
+    """
+    Convert a pandas DataFrame into a list of dictionaries.
+
+    MongoDB stores data as documents.
+    Each DataFrame row becomes one MongoDB document.
+
+    pandas NaN and NaT values are converted to Python None.
+    MongoDB will store None as null.
+    """
+
+    clean_df = df.copy()
+
+    clean_df = clean_df.astype(object).where(
+        pd.notnull(clean_df),
+        None
+    )
+
+    return clean_df.to_dict(orient="records")
+
+
+def replace_collection(collection, records):
+    """
+    Remove old documents and insert the current dataset.
+
+    This prevents duplicate records when the notebook is run more than once.
+    """
+
+    collection.delete_many({})
+
+    if records:
+        result = collection.insert_many(records)
+        inserted_count = len(result.inserted_ids)
+    else:
+        inserted_count = 0
+
+    return inserted_count
+
+
+print("SUCCESS — helper functions created.")
+
+
+# ------------------------------------------------------------------------------
+# STEP 4: Load output files from Stages 1–3
+# ------------------------------------------------------------------------------
+
+print("\n\n[4] LOADING OUTPUT FILES FROM STAGES 1–3")
+print("-" * 70)
+
+# Stage 1 files
+df_prices = load_csv("stage1_prices.csv")
+fundamentals = load_json("stage1_fundamentals.json")
+df_news = load_csv("stage1_news.csv")
+df_operating = load_csv("stage1_operating_performance.csv")
+df_financial = load_csv("stage1_financial_performance.csv")
+df_company_metrics = load_csv("stage1_company_level_metrics.csv")
+
+# Stage 2 file
+df_competitors = load_csv("competitor_analysis.csv")
+
+# Stage 3 files
+df_macro_daily = load_csv("stage3_macroeconomic_indicators.csv")
+df_macro_annual = load_csv("stage3_annual_macro_summary.csv")
+
+
+print("SUCCESS — all files loaded.")
+
+print("\nRows loaded:")
+
+print(f"  Stage 1 price history:             {len(df_prices)}")
+print(f"  Stage 1 fundamentals:              1")
+print(f"  Stage 1 news headlines:            {len(df_news)}")
+print(f"  Stage 1 operating metrics:         {len(df_operating)}")
+print(f"  Stage 1 financial metrics:         {len(df_financial)}")
+print(f"  Stage 1 company-level metrics:     {len(df_company_metrics)}")
+print(f"  Stage 2 competitor records:        {len(df_competitors)}")
+print(f"  Stage 3 daily macro observations:  {len(df_macro_daily)}")
+print(f"  Stage 3 annual macro observations: {len(df_macro_annual)}")
+
+
+# ------------------------------------------------------------------------------
+# STEP 5: Standardize data types before MongoDB insertion
+# ------------------------------------------------------------------------------
+
+print("\n\n[5] STANDARDIZING DATA TYPES")
+print("-" * 70)
+
+# Convert date fields into real datetime objects.
+# MongoDB will store them as ISODate rather than plain text.
+
+if "date" in df_prices.columns:
+    df_prices["date"] = pd.to_datetime(
+        df_prices["date"],
+        errors="coerce"
+    )
+
+if "timestamp" in df_news.columns:
+    df_news["timestamp"] = pd.to_datetime(
+        df_news["timestamp"],
+        errors="coerce",
+        utc=True
+    )
+
+if "date" in df_macro_daily.columns:
+    df_macro_daily["date"] = pd.to_datetime(
+        df_macro_daily["date"],
+        errors="coerce"
+    )
+
+if "year" in df_macro_annual.columns:
+    df_macro_annual["year"] = pd.to_numeric(
+        df_macro_annual["year"],
+        errors="coerce"
+    )
+
+
+# Make important numeric columns numeric.
+
+price_numeric_columns = [
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "distribution"
+]
+
+for column in price_numeric_columns:
+    if column in df_prices.columns:
+        df_prices[column] = pd.to_numeric(
+            df_prices[column],
+            errors="coerce"
+        )
+
+
+competitor_numeric_columns = [
+    "market_cap_numeric",
+    "dividend_yield_numeric",
+    "dividend_yield_rank",
+    "market_cap_rank"
+]
+
+for column in competitor_numeric_columns:
+    if column in df_competitors.columns:
+        df_competitors[column] = pd.to_numeric(
+            df_competitors[column],
+            errors="coerce"
+        )
+
+
+macro_numeric_columns = [
+    "overnight_rate",
+    "bond_yield_5y",
+    "overnight_rate_change",
+    "bond_yield_5y_change"
+]
+
+for column in macro_numeric_columns:
+    if column in df_macro_daily.columns:
+        df_macro_daily[column] = pd.to_numeric(
+            df_macro_daily[column],
+            errors="coerce"
+        )
+
+
+print("SUCCESS — dates and numeric fields standardized.")
+
+
+# ------------------------------------------------------------------------------
+# STEP 6: Insert Stage 1 company data into MongoDB
+# ------------------------------------------------------------------------------
+
+print("\n\n[6] INSERTING STAGE 1 COMPANY DATA")
+print("-" * 70)
+
+stage1_insert_counts = {}
+
+stage1_insert_counts["reit_prices"] = replace_collection(
+    collections["prices"],
+    clean_dataframe_for_mongo(df_prices)
+)
+
+stage1_insert_counts["reit_fundamentals"] = replace_collection(
+    collections["fundamentals"],
+    [fundamentals]
+)
+
+stage1_insert_counts["reit_news"] = replace_collection(
+    collections["news"],
+    clean_dataframe_for_mongo(df_news)
+)
+
+stage1_insert_counts["reit_operating_performance"] = replace_collection(
+    collections["operating"],
+    clean_dataframe_for_mongo(df_operating)
+)
+
+stage1_insert_counts["reit_financial_performance"] = replace_collection(
+    collections["financial"],
+    clean_dataframe_for_mongo(df_financial)
+)
+
+stage1_insert_counts["reit_company_level_metrics"] = replace_collection(
+    collections["company_metrics"],
+    clean_dataframe_for_mongo(df_company_metrics)
+)
+
+
+print("Stage 1 documents inserted:")
+
+for collection_name, count in stage1_insert_counts.items():
+    print(f"  {collection_name:<36} {count} documents")
+
+
+# ------------------------------------------------------------------------------
+# STEP 7: Insert Stage 2 competitor data into MongoDB
+# ------------------------------------------------------------------------------
+
+print("\n\n[7] INSERTING STAGE 2 COMPETITOR DATA")
+print("-" * 70)
+
+competitor_count = replace_collection(
+    collections["competitors"],
+    clean_dataframe_for_mongo(df_competitors)
+)
+
+print(
+    f"SUCCESS — {competitor_count} competitor documents inserted "
+    f"into reit_competitors."
+)
+
+
+# ------------------------------------------------------------------------------
+# STEP 8: Insert Stage 3 macroeconomic data into MongoDB
+# ------------------------------------------------------------------------------
+
+print("\n\n[8] INSERTING STAGE 3 MACROECONOMIC DATA")
+print("-" * 70)
+
+macro_daily_count = replace_collection(
+    collections["macro_daily"],
+    clean_dataframe_for_mongo(df_macro_daily)
+)
+
+macro_annual_count = replace_collection(
+    collections["macro_annual"],
+    clean_dataframe_for_mongo(df_macro_annual)
+)
+
+print(
+    f"SUCCESS — {macro_daily_count} daily macroeconomic documents inserted."
+)
+
+print(
+    f"SUCCESS — {macro_annual_count} annual macroeconomic documents inserted."
+)
+
+
+# ------------------------------------------------------------------------------
+# STEP 9: Create MongoDB indexes
+# ------------------------------------------------------------------------------
+
+print("\n\n[9] CREATING MONGODB INDEXES")
+print("-" * 70)
+
+# Indexes improve query performance for frequently searched fields.
+
+collections["prices"].create_index(
+    [("date", ASCENDING)]
+)
+
+collections["news"].create_index(
+    [("timestamp", DESCENDING)]
+)
+
+collections["competitors"].create_index(
+    [("ticker", ASCENDING)],
+    unique=False
+)
+
+collections["competitors"].create_index(
+    [("dividend_yield_numeric", DESCENDING)]
+)
+
+collections["macro_daily"].create_index(
+    [("date", ASCENDING)]
+)
+
+collections["macro_annual"].create_index(
+    [("year", ASCENDING)]
+)
+
+print("SUCCESS — MongoDB indexes created.")
+
+
+# ------------------------------------------------------------------------------
+# STEP 10: Verify MongoDB insertion
+# ------------------------------------------------------------------------------
+
+print("\n\n[10] VERIFYING MONGODB INSERTION")
+print("-" * 70)
+
+print(f"Database: {DB_NAME}")
+
+print("\nCollections currently stored:")
+
+for collection_name in sorted(db.list_collection_names()):
+    count = db[collection_name].count_documents({})
+
+    print(
+        f"  {collection_name:<36} "
+        f"{count} documents"
+    )
+
+
+print("\nExample price document:")
+
+example_price = collections["prices"].find_one(
+    {},
+    {"_id": 0}
+)
+
+pprint(example_price)
+
+
+print("\nExample competitor document:")
+
+example_competitor = collections["competitors"].find_one(
+    {},
+    {"_id": 0}
+)
+
+pprint(example_competitor)
+
+
+print("\nExample macroeconomic document:")
+
+example_macro = collections["macro_daily"].find_one(
+    {},
+    {"_id": 0}
+)
+
+pprint(example_macro)
+
+
+# ------------------------------------------------------------------------------
+# STEP 11: Run sample MongoDB queries
+# ------------------------------------------------------------------------------
+
+print("\n\n[11] RUNNING SAMPLE MONGODB QUERIES")
+print("-" * 70)
+
+
+# ------------------------------------------------------------------------------
+# Query 1: Latest five SmartCentres prices
+# ------------------------------------------------------------------------------
+
+print("\nQUERY 1 — Latest five SmartCentres price observations")
+print("-" * 60)
+
+latest_prices = list(
+    collections["prices"]
+    .find(
+        {},
+        {
+            "_id": 0,
+            "date": 1,
+            "close": 1,
+            "volume": 1
+        }
+    )
+    .sort("date", DESCENDING)
+    .limit(5)
+)
+
+for document in latest_prices:
+    pprint(document)
+
+
+# ------------------------------------------------------------------------------
+# Query 2: Highest dividend-yield competitors
+# ------------------------------------------------------------------------------
+
+print("\nQUERY 2 — Retail REITs ranked by dividend yield")
+print("-" * 60)
+
+top_dividend_competitors = list(
+    collections["competitors"]
+    .find(
+        {
+            "dividend_yield_numeric": {
+                "$ne": None
+            }
+        },
+        {
+            "_id": 0,
+            "ticker": 1,
+            "company": 1,
+            "dividend_yield": 1,
+            "dividend_yield_numeric": 1,
+            "dividend_yield_rank": 1,
+            "business_relevance": 1
+        }
+    )
+    .sort("dividend_yield_numeric", DESCENDING)
+    .limit(5)
+)
+
+for document in top_dividend_competitors:
+    pprint(document)
+
+
+# ------------------------------------------------------------------------------
+# Query 3: SmartCentres occupancy rate
+# ------------------------------------------------------------------------------
+
+print("\nQUERY 3 — SmartCentres occupancy rate")
+print("-" * 60)
+
+occupancy_record = collections["operating"].find_one(
+    {
+        "key_metric": "Occupancy Rate"
+    },
+    {
+        "_id": 0,
+        "ticker": 1,
+        "category": 1,
+        "key_metric": 1,
+        "metric_value": 1,
+        "display_value": 1,
+        "why_it_matters": 1,
+        "source": 1
+    }
+)
+
+pprint(occupancy_record)
+
+
+# ------------------------------------------------------------------------------
+# Query 4: SmartCentres FFO per unit
+# ------------------------------------------------------------------------------
+
+print("\nQUERY 4 — SmartCentres FFO per Unit")
+print("-" * 60)
+
+ffo_record = collections["financial"].find_one(
+    {
+        "key_metric": "FFO per Unit"
+    },
+    {
+        "_id": 0,
+        "ticker": 1,
+        "category": 1,
+        "key_metric": 1,
+        "metric_value_2024": 1,
+        "metric_value_2025": 1,
+        "display_2024": 1,
+        "display_2025": 1,
+        "why_it_matters": 1,
+        "source": 1
+    }
+)
+
+pprint(ffo_record)
+
+
+# ------------------------------------------------------------------------------
+# Query 5: Latest macroeconomic observation
+# ------------------------------------------------------------------------------
+
+print("\nQUERY 5 — Latest Bank of Canada macroeconomic observation")
+print("-" * 60)
+
+latest_macro = collections["macro_daily"].find_one(
+    {},
+    {
+        "_id": 0,
+        "date": 1,
+        "overnight_rate": 1,
+        "bond_yield_5y": 1,
+        "macro_environment": 1,
+        "reit_implication": 1
+    },
+    sort=[
+        ("date", DESCENDING)
+    ]
+)
+
+pprint(latest_macro)
+
+
+# ------------------------------------------------------------------------------
+# STEP 12: Retrieve MongoDB data for visualization
+# ------------------------------------------------------------------------------
+
+print("\n\n[12] CREATING VISUALIZATIONS FROM MONGODB DATA")
+print("-" * 70)
+
+
+# ------------------------------------------------------------------------------
+# Figure 1: SmartCentres closing price
+# ------------------------------------------------------------------------------
+
+mongo_prices = pd.DataFrame(
+    list(
+        collections["prices"].find(
+            {},
+            {
+                "_id": 0,
+                "date": 1,
+                "close": 1
+            }
+        )
+    )
+)
+
+if not mongo_prices.empty:
+
+    mongo_prices["date"] = pd.to_datetime(
+        mongo_prices["date"],
+        errors="coerce"
+    )
+
+    mongo_prices["close"] = pd.to_numeric(
+        mongo_prices["close"],
+        errors="coerce"
+    )
+
+    mongo_prices = mongo_prices.dropna(
+        subset=["date", "close"]
+    )
+
+    mongo_prices = mongo_prices.sort_values("date")
+
+    plt.figure(figsize=(10, 5))
+
+    plt.plot(
+        mongo_prices["date"],
+        mongo_prices["close"]
+    )
+
+    plt.title(
+        "SmartCentres REIT Closing Price"
+    )
+
+    plt.xlabel("Date")
+    plt.ylabel("Closing Price (CAD)")
+
+    plt.xticks(
+        rotation=45
+    )
+
+    plt.tight_layout()
+    plt.show()
+
+else:
+    print("No price data available for visualization.")
+
+
+# ------------------------------------------------------------------------------
+# Figure 2: Retail REIT dividend-yield comparison
+# ------------------------------------------------------------------------------
+
+mongo_competitors = pd.DataFrame(
+    list(
+        collections["competitors"].find(
+            {},
+            {
+                "_id": 0,
+                "ticker": 1,
+                "company": 1,
+                "dividend_yield_numeric": 1
+            }
+        )
+    )
+)
+
+if not mongo_competitors.empty:
+
+    mongo_competitors["dividend_yield_numeric"] = pd.to_numeric(
+        mongo_competitors["dividend_yield_numeric"],
+        errors="coerce"
+    )
+
+    # Use company name when available.
+    # Otherwise, use the ticker as the chart label.
+    if "company" in mongo_competitors.columns:
+
+        mongo_competitors["chart_label"] = (
+            mongo_competitors["company"]
+            .fillna(mongo_competitors["ticker"])
+        )
+
+    else:
+        mongo_competitors["chart_label"] = mongo_competitors["ticker"]
+
+    competitor_plot = mongo_competitors.dropna(
+        subset=[
+            "chart_label",
+            "dividend_yield_numeric"
+        ]
+    )
+
+    competitor_plot = competitor_plot.sort_values(
+        "dividend_yield_numeric",
+        ascending=False
+    )
+
+    if not competitor_plot.empty:
+
+        plt.figure(figsize=(10, 5))
+
+        plt.bar(
+            competitor_plot["chart_label"],
+            competitor_plot["dividend_yield_numeric"] * 100
+        )
+
+        plt.title(
+            "Retail REIT Dividend Yield Comparison"
+        )
+
+        plt.xlabel("Retail REIT")
+        plt.ylabel("Dividend Yield (%)")
+
+        plt.xticks(
+            rotation=45,
+            ha="right"
+        )
+
+        plt.tight_layout()
+        plt.show()
+
+    else:
+        print(
+            "No valid competitor data available for visualization."
+        )
+
+else:
+    print("No competitor data available for visualization.")
+
+
+# ------------------------------------------------------------------------------
+# Figure 3: FFO and AFFO per unit
+# ------------------------------------------------------------------------------
+
+mongo_financial = pd.DataFrame(
+    list(
+        collections["financial"].find(
+            {
+                "key_metric": {
+                    "$in": [
+                        "FFO per Unit",
+                        "AFFO per Unit"
+                    ]
+                }
+            },
+            {
+                "_id": 0,
+                "key_metric": 1,
+                "metric_value_2024": 1,
+                "metric_value_2025": 1
+            }
+        )
+    )
+)
+
+if not mongo_financial.empty:
+
+    mongo_financial["metric_value_2024"] = pd.to_numeric(
+        mongo_financial["metric_value_2024"],
+        errors="coerce"
+    )
+
+    mongo_financial["metric_value_2025"] = pd.to_numeric(
+        mongo_financial["metric_value_2025"],
+        errors="coerce"
+    )
+
+    financial_plot = mongo_financial.set_index(
+        "key_metric"
+    )[
+        [
+            "metric_value_2024",
+            "metric_value_2025"
+        ]
+    ]
+
+    financial_plot = financial_plot.rename(
+        columns={
+            "metric_value_2024": "2024",
+            "metric_value_2025": "2025"
+        }
+    )
+
+    financial_plot.plot(
+        kind="bar",
+        figsize=(9, 5)
+    )
+
+    plt.title(
+        "SmartCentres FFO and AFFO per Unit"
+    )
+
+    plt.xlabel("Financial Metric")
+    plt.ylabel("CAD per Unit")
+
+    plt.xticks(
+        rotation=0
+    )
+
+    plt.tight_layout()
+    plt.show()
+
+else:
+    print("No FFO or AFFO data available for visualization.")
+
+
+# ------------------------------------------------------------------------------
+# Figure 4: Bank of Canada macroeconomic indicators
+# ------------------------------------------------------------------------------
+
+mongo_macro = pd.DataFrame(
+    list(
+        collections["macro_daily"].find(
+            {},
+            {
+                "_id": 0,
+                "date": 1,
+                "overnight_rate": 1,
+                "bond_yield_5y": 1
+            }
+        )
+    )
+)
+
+if not mongo_macro.empty:
+
+    mongo_macro["date"] = pd.to_datetime(
+        mongo_macro["date"],
+        errors="coerce"
+    )
+
+    mongo_macro["overnight_rate"] = pd.to_numeric(
+        mongo_macro["overnight_rate"],
+        errors="coerce"
+    )
+
+    mongo_macro["bond_yield_5y"] = pd.to_numeric(
+        mongo_macro["bond_yield_5y"],
+        errors="coerce"
+    )
+
+    mongo_macro = mongo_macro.dropna(
+        subset=["date"]
+    )
+
+    mongo_macro = mongo_macro.sort_values("date")
+
+    plt.figure(figsize=(10, 5))
+
+    plt.plot(
+        mongo_macro["date"],
+        mongo_macro["overnight_rate"],
+        label="Overnight Rate"
+    )
+
+    plt.plot(
+        mongo_macro["date"],
+        mongo_macro["bond_yield_5y"],
+        label="5-Year Bond Yield"
+    )
+
+    plt.title(
+        "Canadian Interest Rate Indicators"
+    )
+
+    plt.xlabel("Date")
+    plt.ylabel("Rate (%)")
+
+    plt.legend()
+
+    plt.xticks(
+        rotation=45
+    )
+
+    plt.tight_layout()
+    plt.show()
+
+else:
+    print("No macroeconomic data available for visualization.")
+
+
+# ------------------------------------------------------------------------------
+# STEP 13: Stage summary
+# ------------------------------------------------------------------------------
+
+print("\n\n" + "=" * 70)
+print("STAGE 4 COMPLETE")
+print("=" * 70)
+
+print(f"\nMongoDB database created: {DB_NAME}")
+
+print("\nCollections created:")
+
+for collection_name in sorted(db.list_collection_names()):
+
+    document_count = db[
+        collection_name
+    ].count_documents({})
+
+    print(
+        f"  {collection_name:<36} "
+        f"{document_count} documents"
+    )
+
+
+print("\nStage integration completed:")
+
+print("  Stage 1 market data              -> MongoDB")
+print("  Stage 1 annual-report data       -> MongoDB")
+print("  Stage 1 news data                -> MongoDB")
+print("  Stage 2 competitor data          -> MongoDB")
+print("  Stage 3 macroeconomic data       -> MongoDB")
+
+print("\nMongoDB tasks completed:")
+
+print("  Collections created")
+print("  Documents inserted")
+print("  Indexes created")
+print("  Queries executed")
+print("  Insertions verified")
+print("  Visualizations generated")
+
+print("\nStage 4 focuses on MongoDB storage, querying and visualization.")
+print("Statistical analysis and investment interpretation are completed separately.")
