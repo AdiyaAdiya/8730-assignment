@@ -507,6 +507,100 @@ company_level_metrics = pd.concat([
 print("SUCCESS — company-level metrics merged.")
 print(company_level_metrics.to_string(index=False))
 
+# ------------------------------------------------------------------------------
+# STEP 7B: Data Quality Validation
+# ------------------------------------------------------------------------------
+
+print("\n\n[7B] DATA QUALITY VALIDATION")
+print("-" * 70)
+
+validation_results = []
+
+
+def add_validation_check(dataset, check_name, passed, details):
+    validation_results.append({
+        "dataset": dataset,
+        "check_name": check_name,
+        "status": "PASS" if passed else "FAIL",
+        "details": details
+    })
+
+
+# Check price history
+duplicate_dates = price_history["date"].duplicated().sum()
+
+add_validation_check(
+    "price_history",
+    "No duplicate dates",
+    duplicate_dates == 0,
+    f"{duplicate_dates} duplicate dates found"
+)
+
+missing_close = price_history["close"].isna().sum()
+
+add_validation_check(
+    "price_history",
+    "No missing closing prices",
+    missing_close == 0,
+    f"{missing_close} missing closing prices found"
+)
+
+negative_volume = (price_history["volume"] < 0).sum()
+
+add_validation_check(
+    "price_history",
+    "Volume is non-negative",
+    negative_volume == 0,
+    f"{negative_volume} negative volume values found"
+)
+
+invalid_price_range = (price_history["high"] < price_history["low"]).sum()
+
+add_validation_check(
+    "price_history",
+    "High price is not below low price",
+    invalid_price_range == 0,
+    f"{invalid_price_range} invalid price ranges found"
+)
+
+
+# Check financial data
+missing_financial_values = financial_performance[
+    ["metric_value_2024", "metric_value_2025"]
+].isna().sum().sum()
+
+add_validation_check(
+    "financial_performance",
+    "No missing financial values",
+    missing_financial_values == 0,
+    f"{missing_financial_values} missing financial values found"
+)
+
+
+# Check data sources
+add_validation_check(
+    "market_data",
+    "Live market data used",
+    MARKET_SOURCE == "yfinance_live",
+    f"Source: {MARKET_SOURCE}"
+)
+
+add_validation_check(
+    "news_data",
+    "Live news data used",
+    NEWS_SOURCE == "yfinance_live",
+    f"Source: {NEWS_SOURCE}"
+)
+
+
+validation_report = pd.DataFrame(validation_results)
+
+print(validation_report.to_string(index=False))
+
+passed_checks = (validation_report["status"] == "PASS").sum()
+total_checks = len(validation_report)
+
+print(f"\nValidation summary: {passed_checks}/{total_checks} checks passed.")
 
 # ------------------------------------------------------------------------------
 # STEP 8: Export Output Files
