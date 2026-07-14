@@ -1,1 +1,210 @@
+"""
+================================================================================
+STAGE 3 (STANDALONE) — Calling a Public API
+BSMM-8730 — Canadian REIT Data Pipeline
+Target Company: SmartCentres REIT (SRU-UN.TO)
+================================================================================
 
+WHAT THIS SCRIPT DOES:
+Calls the Bank of Canada Valet API — a free, public, NO-KEY-REQUIRED
+financial API — to pull macroeconomic indicators relevant to Canadian REITs.
+
+This stage collects:
+
+    1. Bank of Canada's Target for the Overnight Rate
+    2. Government of Canada 5-Year Benchmark Bond Yield
+
+These indicators are useful because REITs are interest-rate sensitive:
+higher rates can increase financing costs and pressure property valuations.
+
+This script demonstrates:
+    1. Building API URLs
+    2. Sending GET requests
+    3. Reading JSON responses
+    4. Parsing semi-structured JSON into pandas DataFrames
+    5. Combining multiple macroeconomic indicators
+    6. Exporting a clean CSV file for later MongoDB integration
+================================================================================
+"""
+
+# --- Step 0: Install dependencies if running in Google Colab ---
+# !pip install requests pandas --quiet
+
+import requests
+import pandas as pd
+
+
+# ------------------------------------------------------------------------------
+# STEP 1: Define API endpoint and series IDs
+# ------------------------------------------------------------------------------
+
+BASE_URL = "https://www.bankofcanada.ca/valet/observations"
+
+SERIES = {
+    "overnight_rate": {
+        "series_id": "V39079",
+        "description": "Bank of Canada's Target for the Overnight Rate"
+    },
+    "bond_yield_5y": {
+        "series_id": "BD.CDN.5YR.DQ.YLD",
+        "description": "Government of Canada 5-Year Benchmark Bond Yield"
+    }
+}
+
+params = {
+    "start_date": "2024-01-01",
+    "end_date": "2026-06-01"
+}
+
+print("STAGE 3 — Macroeconomic Data Acquisition")
+print("=" * 70)
+print(f"API endpoint: {BASE_URL}")
+print(f"Query parameters: {params}")
+
+print("\nSeries selected:")
+for name, details in SERIES.items():
+    print(f"  {name}: {details['series_id']} — {details['description']}")
+
+
+# ------------------------------------------------------------------------------
+# STEP 2: Send live API requests
+# ------------------------------------------------------------------------------
+
+print("\n\n[1] SENDING LIVE API REQUESTS")
+print("-" * 70)
+
+all_macro_frames = []
+SOURCE = "live"
+
+try:
+    for indicator_name, details in SERIES.items():
+        series_id = details["series_id"]
+        full_url = f"{BASE_URL}/{series_id}/json"
+
+        print(f"\nCalling API for: {indicator_name}")
+        print(f"Full request URL: {full_url}")
+
+        response = requests.get(full_url, params=params, timeout=15)
+        response.raise_for_status()
+
+        data = response.json()
+
+        observations = data.get("observations", [])
+
+        if not observations:
+            raise ValueError(f"No observations returned for {indicator_name}")
+
+        print(f"SUCCESS — {len(observations)} observations returned.")
+
+        records = []
+
+        for obs in observations:
+            value_str = obs.get(series_id, {}).get("v")
+
+            if value_str is not None:
+                records.append({
+                    "date": obs["d"],
+                    indicator_name: float(value_str)
+                })
+
+        df_indicator = pd.DataFrame(records)
+
+        all_macro_frames.append(df_indicator)
+
+except Exception as exc:
+    print(f"Live API call failed ({exc}).")
+    print("Using cached sample values instead so the parsing and merge logic")
+    print("can still be demonstrated.")
+
+    SOURCE = "cached_sample"
+
+    df_overnight = pd.DataFrame({
+        "date": [
+            "2024-01-24", "2024-06-05", "2024-09-04",
+            "2024-12-11", "2025-03-12", "2025-09-17",
+            "2025-10-29", "2026-06-01"
+        ],
+        "overnight_rate": [5.00, 4.75, 4.25, 3.25, 2.75, 2.50, 2.25, 2.25]
+    })
+
+    df_bond5y = pd.DataFrame({
+        "date": [
+            "2024-01-24", "2024-06-05", "2024-09-04",
+            "2024-12-11", "2025-03-12", "2025-09-17",
+            "2025-10-29", "2026-06-01"
+        ],
+        "bond_yield_5y": [3.45, 3.36, 2.90, 2.82, 2.71, 2.66, 2.60, 2.55]
+    })
+
+    all_macro_frames = [df_overnight, df_bond5y]
+
+print(f"\n--> Data source used: {SOURCE}")
+
+
+# ------------------------------------------------------------------------------
+# STEP 3: Merge API results into one macroeconomic dataset
+# ------------------------------------------------------------------------------
+
+print("\n\n[2] MERGING MACROECONOMIC INDICATORS")
+print("-" * 70)
+
+df_macro = all_macro_frames[0]
+
+for frame in all_macro_frames[1:]:
+    df_macro = pd.merge(df_macro, frame, on="date", how="outer")
+
+df_macro["date"] = pd.to_datetime(df_macro["date"])
+df_macro = df_macro.sort_values("date")
+
+# The overnight rate remains in effect until the next Bank of Canada decision.
+df_macro["overnight_rate"] = df_macro["overnight_rate"].ffill()
+
+print("Merged macroeconomic dataset:")
+print(df_macro.head(10).to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 4: Clean and standardize the dataset
+# ------------------------------------------------------------------------------
+
+print("\n\n[3] CLEANING AND STANDARDIZING DATA")
+print("-" * 70)
+
+df_macro["year"] = df_macro["date"].dt.year
+df_macro["month"] = df_macro["date"].dt.month
+
+df_macro["overnight_rate"] = pd.to_numeric(
+    df_macro["overnight_rate"],
+    errors="coerce"
+)
+
+df_macro["bond_yield_5y"] = pd.to_numeric(
+    df_macro["bond_yield_5y"],
+    errors="coerce"
+)
+
+df_macro["overnight_rate_change"] = df_macro["overnight_rate"].diff()
+df_macro["bond_yield_5y_change"] = df_macro["bond_yield_5y"].diff()
+
+df_macro["macro_environment"] = df_macro["overnight_rate_change"].apply(
+    lambda x: "Initial"
+    if pd.isna(x)
+    else "Rate Increase"
+    if x > 0
+    else "Rate Decrease"
+    if x < 0
+    else "No Change"
+)
+
+df_macro["reit_implication"] = df_macro["overnight_rate_change"].apply(
+    lambda x: "Baseline observation"
+    if pd.isna(x)
+    else "Potential financing cost pressure"
+    if x > 0
+    else "Potential financing pressure easing"
+    if x < 0
+    else "Stable financing environment"
+)
+
+print("Cleaned macroeconomic dataset:")
+print(df_macro.head(10).to_string(index=False))
