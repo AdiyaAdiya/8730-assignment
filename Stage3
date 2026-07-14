@@ -208,3 +208,55 @@ df_macro["reit_implication"] = df_macro["overnight_rate_change"].apply(
 
 print("Cleaned macroeconomic dataset:")
 print(df_macro.head(10).to_string(index=False))
+
+# ------------------------------------------------------------------------------
+# STEP 5: Create annual summary for later Stage 4 analysis
+# ------------------------------------------------------------------------------
+
+print("\n\n[4] CREATING ANNUAL MACROECONOMIC SUMMARY")
+print("-" * 70)
+
+annual_macro_summary = (
+    df_macro
+    .groupby("year", as_index=False)
+    .agg({
+        "overnight_rate": "mean",
+        "bond_yield_5y": "mean"
+    })
+)
+
+annual_macro_summary = annual_macro_summary.rename(columns={
+    "overnight_rate": "avg_overnight_rate",
+    "bond_yield_5y": "avg_bond_yield_5y"
+})
+
+print("Annual macroeconomic summary:")
+print(annual_macro_summary.to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 6: Save output files
+# ------------------------------------------------------------------------------
+
+df_macro["date"] = df_macro["date"].dt.strftime("%Y-%m-%d")
+
+df_macro.to_csv("stage3_macroeconomic_indicators.csv", index=False)
+annual_macro_summary.to_csv("stage3_annual_macro_summary.csv", index=False)
+
+print("\n\n" + "=" * 70)
+print("STAGE 3 COMPLETE")
+print("=" * 70)
+
+print("Files written to current directory:")
+print("  stage3_macroeconomic_indicators.csv")
+print("      Daily macroeconomic indicators from Bank of Canada API")
+
+print("  stage3_annual_macro_summary.csv")
+print("      Annual average macroeconomic indicators for Stage 4 analysis")
+
+print(f"\nData source used this run: {SOURCE}")
+print(f"Observations retrieved: {len(df_macro)}")
+
+print("\nSeries used:")
+for name, details in SERIES.items():
+    print(f"  {name}: {details['series_id']} — {details['description']}")
