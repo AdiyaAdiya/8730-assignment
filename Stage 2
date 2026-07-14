@@ -1,1 +1,276 @@
+"""
+================================================================================
+STAGE 2 (STANDALONE) — Competitor Benchmarking via Web Scraping
+BSMM-8730 — Canadian REIT Data Pipeline
+Target Company: SmartCentres REIT (SRU-UN.TO)
+================================================================================
 
+WHAT THIS SCRIPT DOES:
+1. Scrapes Canadian REIT comparison data from WOWA
+2. Extracts Ticker, Company, Market Cap, Dividend Yield, and Property Type
+3. Filters for Retail REIT competitors
+4. Builds a competitor benchmarking dataset
+5. Ranks competitors by dividend yield and market cap
+6. Exports competitor_analysis.csv
+================================================================================
+"""
+
+# --- Step 0: Install dependencies ---
+!pip install requests beautifulsoup4 pandas --quiet
+
+import re
+import requests
+import pandas as pd
+from bs4 import BeautifulSoup
+
+# ------------------------------------------------------------------------------
+# STEP 1: Define Target URL
+# ------------------------------------------------------------------------------
+
+URL = "https://wowa.ca/reit-canada"
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (academic research project, University of Windsor BSMM-8730)"
+}
+
+print("STAGE 2 — Competitor Benchmarking via Web Scraping")
+print("=" * 70)
+print(f"Target URL: {URL}")
+
+
+# ------------------------------------------------------------------------------
+# STEP 2: Send HTTP Request
+# ------------------------------------------------------------------------------
+
+print("\n[1] SENDING LIVE REQUEST")
+print("-" * 70)
+
+try:
+    response = requests.get(URL, headers=HEADERS, timeout=10)
+    response.raise_for_status()
+    html = response.text
+    SOURCE = "live_web_scraping"
+
+    print(f"SUCCESS — HTTP {response.status_code}")
+    print(f"HTML characters received: {len(html)}")
+
+except Exception as exc:
+    print(f"Live request failed ({exc}). Using embedded sample data instead.")
+    SOURCE = "embedded_sample"
+
+    html = """
+    <html><body>
+    <table>
+      <tr><th>Ticker</th><th>Company</th><th>Market Cap</th><th>Dividend Yield</th><th>Property Type</th></tr>
+      <tr><td>SRU.UN</td><td>SmartCentres REIT</td><td>$5.2B</td><td>6.05%</td><td>Retail REIT</td></tr>
+      <tr><td>REI.UN</td><td>RioCan REIT</td><td>$5.8B</td><td>5.80%</td><td>Retail REIT</td></tr>
+      <tr><td>CHP.UN</td><td>Choice Properties REIT</td><td>$9.0B</td><td>5.20%</td><td>Retail REIT</td></tr>
+      <tr><td>PMZ.UN</td><td>Primaris REIT</td><td>$1.5B</td><td>6.40%</td><td>Retail REIT</td></tr>
+      <tr><td>CRR.UN</td><td>Crombie REIT</td><td>$2.5B</td><td>5.90%</td><td>Retail REIT</td></tr>
+      <tr><td>CAR.UN</td><td>CAPREIT</td><td>$7.0B</td><td>3.10%</td><td>Residential REIT</td></tr>
+    </table>
+    </body></html>
+    """
+
+
+# ------------------------------------------------------------------------------
+# STEP 3: Parse HTML and Extract Table
+# ------------------------------------------------------------------------------
+
+print("\n\n[2] PARSING HTML TABLE")
+print("-" * 70)
+
+soup = BeautifulSoup(html, "html.parser")
+tables = soup.find_all("table")
+
+if not tables:
+    raise RuntimeError("No HTML table found.")
+
+print(f"Tables found: {len(tables)}")
+
+# Use the first table as the REIT comparison table
+table = tables[0]
+rows = table.find_all("tr")
+
+headers = [cell.get_text(strip=True) for cell in rows[0].find_all(["th", "td"])]
+
+records = []
+
+for row in rows[1:]:
+    cells = [cell.get_text(strip=True) for cell in row.find_all("td")]
+
+    if len(cells) == 0:
+        continue
+
+    record = {}
+
+    for i in range(min(len(headers), len(cells))):
+        clean_header = headers[i].lower().replace(" ", "_")
+        record[clean_header] = cells[i]
+
+    records.append(record)
+
+raw_reit_table = pd.DataFrame(records)
+
+print("Raw REIT table extracted:")
+print(raw_reit_table.head().to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 4: Standardize Columns
+# ------------------------------------------------------------------------------
+
+print("\n\n[3] STANDARDIZING COLUMNS")
+print("-" * 70)
+
+# Rename possible column variations into standard names
+column_map = {}
+
+for col in raw_reit_table.columns:
+    col_lower = col.lower()
+
+    if "ticker" in col_lower or "symbol" in col_lower:
+        column_map[col] = "ticker"
+    elif "company" in col_lower or "name" in col_lower:
+        column_map[col] = "company"
+    elif "market" in col_lower and "cap" in col_lower:
+        column_map[col] = "market_cap"
+    elif "dividend" in col_lower or "yield" in col_lower:
+        column_map[col] = "dividend_yield"
+    elif "property" in col_lower or "sector" in col_lower or "type" in col_lower:
+        column_map[col] = "property_type"
+
+reit_data = raw_reit_table.rename(columns=column_map)
+
+needed_columns = ["ticker", "company", "market_cap", "dividend_yield", "property_type"]
+
+for col in needed_columns:
+    if col not in reit_data.columns:
+        reit_data[col] = None
+
+reit_data = reit_data[needed_columns]
+
+print("Standardized REIT dataset:")
+print(reit_data.head().to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 5: Clean Numeric Values
+# ------------------------------------------------------------------------------
+
+print("\n\n[4] CLEANING NUMERIC VALUES")
+print("-" * 70)
+
+def parse_market_cap(value):
+    if value is None:
+        return None
+
+    text = str(value).replace("$", "").replace(",", "").strip().lower()
+
+    try:
+        if "billion" in text:
+            return float(re.sub(r"billion", "", text).strip()) * 1_000_000_000
+        elif "million" in text:
+            return float(re.sub(r"million", "", text).strip()) * 1_000_000
+        elif text.endswith("b"):
+            return float(text.replace("b", "").strip()) * 1_000_000_000
+        elif text.endswith("m"):
+            return float(text.replace("m", "").strip()) * 1_000_000
+        else:
+            return float(text)
+    except:
+        return None
+
+
+def parse_percent(value):
+    if value is None:
+        return None
+
+    text = str(value).replace("%", "").strip()
+
+    try:
+        return float(text) / 100
+    except:
+        return None
+
+
+reit_data["market_cap_numeric"] = reit_data["market_cap"].apply(parse_market_cap)
+reit_data["dividend_yield_numeric"] = reit_data["dividend_yield"].apply(parse_percent)
+
+print("Numeric fields cleaned:")
+print(reit_data.head().to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 6: Filter Retail REIT Competitors
+# ------------------------------------------------------------------------------
+
+print("\n\n[5] FILTERING RETAIL REIT COMPETITORS")
+print("-" * 70)
+
+retail_reits = reit_data[
+    reit_data["property_type"].str.contains("Retail", case=False, na=False)
+].copy()
+
+# If live website structure does not provide property type clearly,
+# use a fallback list of known retail REIT competitors.
+target_retail_tickers = ["SRU.UN", "REI.UN", "CHP.UN", "PMZ.UN", "CRR.UN"]
+
+fallback_competitors = reit_data[
+    reit_data["ticker"].isin(target_retail_tickers)
+].copy()
+
+if len(retail_reits) < 3 and len(fallback_competitors) > 0:
+    retail_reits = fallback_competitors
+
+retail_reits["benchmark_group"] = "Retail REIT Competitor"
+
+print(f"Retail REIT competitors selected: {len(retail_reits)}")
+print(retail_reits.to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 7: Build Competitor Dataset and Rankings
+# ------------------------------------------------------------------------------
+
+print("\n\n[6] BUILDING COMPETITOR ANALYSIS DATASET")
+print("-" * 70)
+
+competitor_analysis = retail_reits.copy()
+
+competitor_analysis["dividend_yield_rank"] = competitor_analysis[
+    "dividend_yield_numeric"
+].rank(ascending=False, method="min")
+
+competitor_analysis["market_cap_rank"] = competitor_analysis[
+    "market_cap_numeric"
+].rank(ascending=False, method="min")
+
+competitor_analysis = competitor_analysis.sort_values(
+    by=["dividend_yield_numeric", "market_cap_numeric"],
+    ascending=[False, False]
+)
+
+competitor_analysis["business_relevance"] = competitor_analysis["ticker"].apply(
+    lambda x: "Target Company" if str(x).upper() in ["SRU.UN", "SRU-UN.TO"] else "Comparable Retail REIT"
+)
+
+print("Final competitor analysis dataset:")
+print(competitor_analysis.to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# STEP 8: Export Output
+# ------------------------------------------------------------------------------
+
+print("\n\n[7] EXPORT OUTPUT FILE")
+print("-" * 70)
+
+competitor_analysis.to_csv("competitor_analysis.csv", index=False)
+
+print("SUCCESS — competitor_analysis.csv exported.")
+print("\nData source used:")
+print(f"  {SOURCE}")
+
+print("\nSTAGE 2 COMPLETE")
+print("=" * 70)
