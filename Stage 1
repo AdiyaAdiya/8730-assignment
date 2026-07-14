@@ -133,7 +133,18 @@ except Exception as exc:
     }
 
     MARKET_SOURCE = "placeholder_fallback"
+# ------------------------------------------------------------------------------
+# STEP 2B: Display Market Fundamentals
+# ------------------------------------------------------------------------------
 
+print("\n[2] SEMI-STRUCTURED DATA — fundamentals dictionary")
+print("-" * 70)
+
+if fundamentals:
+    print(json.dumps(fundamentals, indent=2, default=str))
+    print(f"\nSUCCESS — fundamentals loaded from: {MARKET_SOURCE}")
+else:
+    print("WARNING — fundamentals dictionary is empty.")
 
 # ------------------------------------------------------------------------------
 # STEP 3: Acquire News
