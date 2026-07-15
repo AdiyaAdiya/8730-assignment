@@ -934,17 +934,17 @@ if not mongo_macro.empty:
     plt.plot(
         mongo_macro["date"],
         mongo_macro["overnight_rate"],
-        label="Overnight Rate"
+        label="Bank of Canada Overnight Rate"
     )
 
     plt.plot(
         mongo_macro["date"],
         mongo_macro["bond_yield_5y"],
-        label="5-Year Bond Yield"
+        label="Government of Canada 5-Year Bond Yield"
     )
 
     plt.title(
-        "Canadian Interest Rate Indicators"
+        "Bank of Canada Overnight Rate vs Government 5-Year Bond Yield"
     )
 
     plt.xlabel("Date")
@@ -961,7 +961,6 @@ if not mongo_macro.empty:
 
 else:
     print("No macroeconomic data available for visualization.")
-
 
 # ------------------------------------------------------------------------------
 # STEP 13: Stage summary
@@ -1006,3 +1005,19 @@ print("  Visualizations generated")
 
 print("\nStage 4 focuses on MongoDB storage, querying and visualization.")
 print("Statistical analysis and investment interpretation are completed separately.")
+
+print("\nVisual analytics completed successfully.")
+
+print(
+    "MongoDB now contains integrated company, competitor, and macroeconomic datasets."
+)
+
+print(
+    "The visualization dashboard provides a consolidated view of SmartCentres REIT "
+    "market performance, peer comparison, and macroeconomic conditions."
+)
+
+print(
+    "These integrated datasets support subsequent investment analysis "
+    "and business decision-making."
+)
