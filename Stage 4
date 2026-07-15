@@ -515,6 +515,82 @@ example_macro = collections["macro_daily"].find_one(
 
 pprint(example_macro)
 
+# ------------------------------------------------------------------------------
+# STEP 10B: Verify source rows against MongoDB document counts
+# ------------------------------------------------------------------------------
+
+print("\n\n[10B] VERIFYING SOURCE-TO-MONGODB RECORD COUNTS")
+print("-" * 70)
+
+count_checks = [
+    {
+        "dataset": "Stage 1 price history",
+        "expected": len(df_prices),
+        "actual": collections["prices"].count_documents({})
+    },
+    {
+        "dataset": "Stage 1 fundamentals",
+        "expected": 1,
+        "actual": collections["fundamentals"].count_documents({})
+    },
+    {
+        "dataset": "Stage 1 news",
+        "expected": len(df_news),
+        "actual": collections["news"].count_documents({})
+    },
+    {
+        "dataset": "Stage 1 operating performance",
+        "expected": len(df_operating),
+        "actual": collections["operating"].count_documents({})
+    },
+    {
+        "dataset": "Stage 1 financial performance",
+        "expected": len(df_financial),
+        "actual": collections["financial"].count_documents({})
+    },
+    {
+        "dataset": "Stage 1 company metrics",
+        "expected": len(df_company_metrics),
+        "actual": collections["company_metrics"].count_documents({})
+    },
+    {
+        "dataset": "Stage 2 competitors",
+        "expected": len(df_competitors),
+        "actual": collections["competitors"].count_documents({})
+    },
+    {
+        "dataset": "Stage 3 daily macro data",
+        "expected": len(df_macro_daily),
+        "actual": collections["macro_daily"].count_documents({})
+    },
+    {
+        "dataset": "Stage 3 annual macro data",
+        "expected": len(df_macro_annual),
+        "actual": collections["macro_annual"].count_documents({})
+    }
+]
+
+all_counts_match = True
+
+for check in count_checks:
+    passed = check["expected"] == check["actual"]
+
+    if not passed:
+        all_counts_match = False
+
+    status = "PASS" if passed else "FAIL"
+
+    print(
+        f"{status:<5} | "
+        f"{check['dataset']:<36} | "
+        f"Expected: {check['expected']:<5} | "
+        f"MongoDB: {check['actual']}"
+    )
+
+if all_counts_match:
+    print("\nSUCCESS — all MongoDB document counts match the source datasets.")
+else:
+    print("\nWARNING — one or more MongoDB collections do not match the source data.")
 
 # ------------------------------------------------------------------------------
 # STEP 11: Run sample MongoDB queries
