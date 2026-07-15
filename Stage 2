@@ -259,7 +259,7 @@ print("Final competitor analysis dataset:")
 print(competitor_analysis.to_string(index=False))
 
 # ------------------------------------------------------------------------------
-# PULL REQUEST 1
+# PULL REQUEST 1 Enhanced Stage 2 using yfinance API for market data enrichment
 # ------------------------------------------------------------------------------
 
 print("\n\n[6A] ENRICHING DATA USING YFINANCE")
