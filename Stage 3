@@ -260,3 +260,308 @@ print(f"Observations retrieved: {len(df_macro)}")
 print("\nSeries used:")
 for name, details in SERIES.items():
     print(f"  {name}: {details['series_id']} — {details['description']}")
+
+
+
+"""
+===========================================================================
+STAGE 3 VISUAL ANALYSIS
+Macroeconomic Analysis for SmartCentres REIT
+===========================================================================
+
+This script performs:
+
+1. Descriptive statistics
+2. Correlation analysis
+3. Interest-rate trend visualization
+4. Bond yield trend visualization
+5. Comparison chart
+6. Monthly rate-change analysis
+7. Macro environment frequency
+8. Summary report
+
+===========================================================================
+
+"""
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# ---------------------------------------------------------------------
+# STEP 1 Load Data
+# ---------------------------------------------------------------------
+
+print("="*70)
+print("MACROECONOMIC ANALYSIS")
+print("="*70)
+
+df = pd.read_csv("stage3_macroeconomic_indicators.csv")
+
+df["date"] = pd.to_datetime(df["date"])
+
+print("\nDataset Preview")
+print(df.head())
+
+# ---------------------------------------------------------------------
+# STEP 2 Descriptive Statistics
+# ---------------------------------------------------------------------
+
+print("\n")
+print("="*70)
+print("DESCRIPTIVE STATISTICS")
+print("="*70)
+
+stats = df[
+    [
+        "overnight_rate",
+        "bond_yield_5y"
+    ]
+].describe()
+
+print(stats)
+
+stats.to_csv("macro_descriptive_statistics.csv")
+
+# ---------------------------------------------------------------------
+# STEP 3 Correlation
+# ---------------------------------------------------------------------
+
+print("\n")
+print("="*70)
+print("CORRELATION")
+print("="*70)
+
+corr = df[
+    [
+        "overnight_rate",
+        "bond_yield_5y"
+    ]
+].corr()
+
+print(corr)
+
+corr.to_csv("macro_correlation.csv")
+
+# ---------------------------------------------------------------------
+# STEP 4 Overnight Rate Trend
+# ---------------------------------------------------------------------
+
+plt.figure(figsize=(10,5))
+
+plt.plot(
+    df["date"],
+    df["overnight_rate"],
+    marker="o",
+    linewidth=2
+)
+
+plt.title("Bank of Canada Overnight Rate")
+
+plt.xlabel("Date")
+
+plt.ylabel("Rate (%)")
+
+plt.grid(True)
+
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+
+plt.savefig("overnight_rate_trend.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 5 Bond Yield Trend
+# ---------------------------------------------------------------------
+
+plt.figure(figsize=(10,5))
+
+plt.plot(
+    df["date"],
+    df["bond_yield_5y"],
+    marker="s",
+    linewidth=2
+)
+
+plt.title("Government of Canada 5-Year Bond Yield")
+
+plt.xlabel("Date")
+
+plt.ylabel("Yield (%)")
+
+plt.grid(True)
+
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+
+plt.savefig("bond_yield_trend.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 6 Compare Both Indicators
+# ---------------------------------------------------------------------
+
+plt.figure(figsize=(11,6))
+
+plt.plot(
+    df["date"],
+    df["overnight_rate"],
+    label="Overnight Rate",
+    linewidth=2
+)
+
+plt.plot(
+    df["date"],
+    df["bond_yield_5y"],
+    label="5-Year Bond Yield",
+    linewidth=2
+)
+
+plt.legend()
+
+plt.grid(True)
+
+plt.title("Canadian Macroeconomic Indicators")
+
+plt.xlabel("Date")
+
+plt.ylabel("Rate (%)")
+
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+
+plt.savefig("macro_indicator_comparison.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 7 Monthly Change
+# ---------------------------------------------------------------------
+
+plt.figure(figsize=(10,5))
+
+plt.bar(
+    df["date"],
+    df["overnight_rate_change"]
+)
+
+plt.title("Changes in Overnight Rate")
+
+plt.xlabel("Date")
+
+plt.ylabel("Rate Change")
+
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+
+plt.savefig("overnight_rate_changes.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 8 Macro Environment Distribution
+# ---------------------------------------------------------------------
+
+environment_counts = df["macro_environment"].value_counts()
+
+plt.figure(figsize=(8,5))
+
+plt.bar(
+    environment_counts.index,
+    environment_counts.values
+)
+
+plt.title("Macroeconomic Environment Distribution")
+
+plt.xlabel("Environment")
+
+plt.ylabel("Frequency")
+
+plt.tight_layout()
+
+plt.savefig("macro_environment_distribution.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 9 Annual Average
+# ---------------------------------------------------------------------
+
+annual = (
+    df
+    .groupby("year")
+    [
+        [
+            "overnight_rate",
+            "bond_yield_5y"
+        ]
+    ]
+    .mean()
+)
+
+annual.plot(
+    kind="bar",
+    figsize=(9,5)
+)
+
+plt.title("Annual Average Interest Rates")
+
+plt.ylabel("Average Rate (%)")
+
+plt.xticks(rotation=0)
+
+plt.tight_layout()
+
+plt.savefig("annual_macro_summary.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 10 Automatic Interpretation
+# ---------------------------------------------------------------------
+
+print("\n")
+print("="*70)
+print("AUTOMATIC INTERPRETATION")
+print("="*70)
+
+latest = df.iloc[-1]
+
+print(f"Latest Overnight Rate: {latest['overnight_rate']:.2f}%")
+print(f"Latest 5-Year Bond Yield: {latest['bond_yield_5y']:.2f}%")
+
+avg_rate = df["overnight_rate"].mean()
+avg_bond = df["bond_yield_5y"].mean()
+
+print(f"\nAverage Overnight Rate: {avg_rate:.2f}%")
+print(f"Average Bond Yield: {avg_bond:.2f}%")
+
+if latest["overnight_rate"] > avg_rate:
+    print("\nInterest rates remain above the period average.")
+    print("This may increase borrowing costs for Canadian REITs.")
+else:
+    print("\nInterest rates are below the period average.")
+    print("This may improve financing conditions for Canadian REITs.")
+
+if latest["bond_yield_5y"] > avg_bond:
+    print("\nGovernment bond yields remain elevated.")
+else:
+    print("\nGovernment bond yields remain below the period average.")
+
+print("\nAnalysis Complete.")
+
+print("\nGenerated files:")
+
+print("- macro_descriptive_statistics.csv")
+print("- macro_correlation.csv")
+print("- overnight_rate_trend.png")
+print("- bond_yield_trend.png")
+print("- macro_indicator_comparison.png")
+print("- overnight_rate_changes.png")
+print("- macro_environment_distribution.png")
+print("- annual_macro_summary.png")
