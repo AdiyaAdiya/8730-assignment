@@ -11,7 +11,7 @@ WHAT THIS SCRIPT DOES:
 3. Filters for Retail REIT competitors
 4. Builds a competitor benchmarking dataset
 5. Ranks competitors by dividend yield and market cap
-6. Exports competitor_analysis.csv
+6. Exports competitor_analysis_pr1.csv
 ================================================================================
 """
 
