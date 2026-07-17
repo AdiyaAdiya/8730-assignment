@@ -131,7 +131,11 @@ for col in raw_reit_table.columns:
 
     if "ticker" in col_lower or "symbol" in col_lower:
         column_map[col] = "ticker"
-    elif "company" in col_lower or "name" in col_lower:
+    elif (
+    "company" in col_lower
+    or "name" in col_lower
+    or "reit" in col_lower
+):
         column_map[col] = "company"
     elif "market" in col_lower and "cap" in col_lower:
         column_map[col] = "market_cap"
@@ -257,6 +261,37 @@ competitor_analysis["business_relevance"] = competitor_analysis["ticker"].apply(
 
 print("Final competitor analysis dataset:")
 print(competitor_analysis.to_string(index=False))
+
+
+# ------------------------------------------------------------------------------
+# IMPROVEMENT 2: Benchmark Category/Competitor Classification Enhancement
+# ------------------------------------------------------------------------------
+
+competitor_analysis["benchmark_type"] = (
+    competitor_analysis["ticker"]
+    .apply(
+        lambda x:
+        "Target Company"
+        if x == "SRU.UN"
+        else (
+            "Primary Benchmark"
+            if x == "REI.UN"
+            else "Secondary Competitor"
+        )
+    )
+)
+
+print("\nPR2 - Competitor Classification")
+print(
+    competitor_analysis[
+        [
+            "ticker",
+            "company",
+            "benchmark_type"
+        ]
+    ]
+)
+
 
 
 # ------------------------------------------------------------------------------
