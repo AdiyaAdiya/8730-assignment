@@ -1,6 +1,6 @@
 """
 ================================================================================
-STAGE 2 (STANDALONE) — Competitor Benchmarking via Web Scraping
+STAGE 2 (STANDALONE_2) — Competitor Benchmarking via Web Scraping
 BSMM-8730 — Canadian REIT Data Pipeline
 Target Company: SmartCentres REIT (SRU-UN.TO)
 ================================================================================
@@ -16,12 +16,13 @@ WHAT THIS SCRIPT DOES:
 """
 
 # --- Step 0: Install dependencies ---
-!pip install requests beautifulsoup4 pandas --quiet
+!pip install requests beautifulsoup4 pandas yfinance --quiet
 
 import re
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
+import yfinance as yf
 
 # ------------------------------------------------------------------------------
 # STEP 1: Define Target URL
@@ -115,8 +116,7 @@ raw_reit_table = pd.DataFrame(records)
 print("Raw REIT table extracted:")
 print(raw_reit_table.head().to_string(index=False))
 
-
-# ------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # STEP 4: Standardize Columns
 # ------------------------------------------------------------------------------
 
@@ -258,6 +258,301 @@ competitor_analysis["business_relevance"] = competitor_analysis["ticker"].apply(
 print("Final competitor analysis dataset:")
 print(competitor_analysis.to_string(index=False))
 
+# ------------------------------------------------------------------------------
+# PULL REQUEST 1 Enhanced Stage 2 using yfinance API for market data enrichment
+# ------------------------------------------------------------------------------
+
+print("\n\n[6A] ENRICHING DATA USING YFINANCE")
+print("-"*70)
+
+ticker_map = {
+    "SRU.UN": "SRU-UN.TO",
+    "REI.UN": "REI-UN.TO",
+    "CHP.UN": "CHP-UN.TO",
+    "CRR.UN": "CRR-UN.TO",
+    "CRT.UN": "CRT-UN.TO",
+    "SGR.UN": "SGR-UN.TO"
+}
+
+current_prices = []
+week52_high = []
+week52_low = []
+market_caps_yf = []
+dividend_yields_yf = []
+one_year_returns = []
+
+for ticker in competitor_analysis["ticker"]:
+
+    yf_ticker = ticker_map.get(ticker)
+
+    if yf_ticker is None:
+        current_prices.append(None)
+        week52_high.append(None)
+        week52_low.append(None)
+        market_caps_yf.append(None)
+        dividend_yields_yf.append(None)
+        one_year_returns.append(None)
+        continue
+
+    try:
+
+        stock = yf.Ticker(yf_ticker)
+
+        info = stock.info
+
+        current_prices.append(
+            info.get("currentPrice")
+        )
+
+        week52_high.append(
+            info.get("fiftyTwoWeekHigh")
+        )
+
+        week52_low.append(
+            info.get("fiftyTwoWeekLow")
+        )
+
+        market_caps_yf.append(
+            info.get("marketCap")
+        )
+
+        dividend_yields_yf.append(
+            info.get("dividendYield")
+        )
+
+        hist = stock.history(period="1y")
+
+        if len(hist) > 1:
+
+            annual_return = (
+                (
+                    hist["Close"].iloc[-1]
+                    -
+                    hist["Close"].iloc[0]
+                )
+                /
+                hist["Close"].iloc[0]
+            ) * 100
+
+        else:
+            annual_return = None
+
+        one_year_returns.append(
+            annual_return
+        )
+
+    except Exception as e:
+
+        print(f"Error for {ticker}: {e}")
+
+        current_prices.append(None)
+        week52_high.append(None)
+        week52_low.append(None)
+        market_caps_yf.append(None)
+        dividend_yields_yf.append(None)
+        one_year_returns.append(None)
+
+competitor_analysis["current_price"] = current_prices
+competitor_analysis["52_week_high"] = week52_high
+competitor_analysis["52_week_low"] = week52_low
+competitor_analysis["market_cap_yfinance"] = market_caps_yf
+competitor_analysis["dividend_yield_yfinance"] = dividend_yields_yf
+competitor_analysis["one_year_return_pct"] = one_year_returns
+
+competitor_analysis["return_rank"] = (
+    competitor_analysis["one_year_return_pct"]
+    .rank(ascending=False, method="min")
+)
+
+competitor_analysis["price_rank"] = (
+    competitor_analysis["current_price"]
+    .rank(ascending=False, method="min")
+)
+
+print("\nEnhanced Competitor Dataset")
+
+print(
+    competitor_analysis[
+        [
+            "ticker",
+            "current_price",
+            "52_week_high",
+            "52_week_low",
+            "one_year_return_pct",
+            "return_rank"
+        ]
+    ]
+)
+
+# ==============================================================================
+# PULL REQUEST 2
+# Annual Report Financial Enrichment
+# ==============================================================================
+
+print("\n\n[6B] ENRICHING DATA USING ANNUAL REPORTS")
+print("-"*70)
+
+print("\nAnnual Report Sources")
+
+annual_report_links = {
+
+    "SRU.UN":
+    "https://smartcentres.com/wp-content/uploads/2026/04/2025-SmartCentres-REIT-Annual-Report.pdf",
+
+    "REI.UN":
+    "https://s29.q4cdn.com/937534249/files/doc_financials/2025/q4/REI-Q4-2025-Report-to-Unitholders.pdf",
+
+    "CHP.UN":
+    "https://www.choicereit.ca/wp-content/uploads/2026/02/Choice-REIT-Annual-Report-2025.pdf",
+
+    "CRR.UN":
+    "https://www.crombie.ca/wp-content/uploads/2026/06/2025-Annual-Report.pdf",
+
+    "CRT.UN":
+    "https://s22.q4cdn.com/762287231/files/doc_financials/2025/ar/2025_CT-REIT_ANNUAL-REPORT.pdf"
+}
+
+for ticker, link in annual_report_links.items():
+    print(ticker, "→", link)
+
+!pip install pdfplumber --quiet
+
+import pdfplumber
+import requests
+import io
+import re
+
+
+def extract_text_from_pdf(url):
+
+    try:
+
+        response = requests.get(url)
+
+        pdf_file = io.BytesIO(
+            response.content
+        )
+
+        text = ""
+
+        with pdfplumber.open(pdf_file) as pdf:
+
+            for page in pdf.pages:
+
+                page_text = page.extract_text()
+
+                if page_text:
+
+                    text += page_text + "\n"
+
+        return text
+
+    except Exception as e:
+
+        print(e)
+
+        return ""
+
+annual_report_metrics = {}
+
+for ticker, link in annual_report_links.items():
+
+    print(f"\nProcessing {ticker}")
+
+    text = extract_text_from_pdf(link)
+
+    occupancy = re.search(
+        r'(\d+\.\d+)%\s*In-place and Committed\s*Occupancy',
+        text,
+        re.IGNORECASE
+    )
+
+    ffo = re.search(
+        r'FFO\s*/\s*unit.*?\$([\d\.]+)',
+        text,
+        re.IGNORECASE
+    )
+
+    affo = re.search(
+        r'AFFO\s*/\s*unit.*?\$([\d\.]+)',
+        text,
+        re.IGNORECASE
+    )
+
+    nav = re.search(
+        r'NAV per Unit.*?\$([\d\.]+)',
+        text,
+        re.IGNORECASE | re.DOTALL
+    )
+
+    annual_report_metrics[ticker] = {
+
+        "occupancy_rate":
+            occupancy.group(1)
+            if occupancy else None,
+
+        "ffo_per_unit":
+            ffo.group(1)
+            if ffo else None,
+
+        "affo_per_unit":
+            affo.group(1)
+            if affo else None,
+
+        "nav_per_unit":
+            nav.group(1)
+            if nav else None
+    }
+
+annual_df = pd.DataFrame(
+    annual_report_metrics
+).T
+
+annual_df.reset_index(
+    inplace=True
+)
+
+annual_df.rename(
+    columns={
+        "index": "ticker"
+    },
+    inplace=True
+)
+
+competitor_analysis = competitor_analysis.merge(
+    annual_df,
+    on="ticker",
+    how="left"
+)
+
+print("\nAnnual Report Metrics Added")
+
+print(
+    competitor_analysis[
+        [
+            "ticker",
+            "occupancy_rate",
+            "ffo_per_unit",
+            "affo_per_unit",
+            "nav_per_unit"
+        ]
+    ]
+)
+
+print(competitor_analysis.columns)
+
+print(
+    competitor_analysis[
+        [
+            "ticker",
+            "occupancy_rate",
+            "ffo_per_unit",
+            "affo_per_unit",
+            "nav_per_unit"
+        ]
+    ]
+)
+
 
 # ------------------------------------------------------------------------------
 # STEP 8: Export Output
@@ -274,3 +569,8 @@ print(f"  {SOURCE}")
 
 print("\nSTAGE 2 COMPLETE")
 print("=" * 70)
+
+
+# Note:
+# Annual report extraction may return null values because
+# report structures and terminology differ across REITs.
