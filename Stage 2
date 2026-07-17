@@ -384,6 +384,176 @@ print(
     ]
 )
 
+# ==============================================================================
+# PULL REQUEST 2
+# Annual Report Financial Enrichment
+# ==============================================================================
+
+print("\n\n[6B] ENRICHING DATA USING ANNUAL REPORTS")
+print("-"*70)
+
+print("\nAnnual Report Sources")
+
+annual_report_links = {
+
+    "SRU.UN":
+    "https://smartcentres.com/wp-content/uploads/2026/04/2025-SmartCentres-REIT-Annual-Report.pdf",
+
+    "REI.UN":
+    "https://s29.q4cdn.com/937534249/files/doc_financials/2025/q4/REI-Q4-2025-Report-to-Unitholders.pdf",
+
+    "CHP.UN":
+    "https://www.choicereit.ca/wp-content/uploads/2026/02/Choice-REIT-Annual-Report-2025.pdf",
+
+    "CRR.UN":
+    "https://www.crombie.ca/wp-content/uploads/2026/06/2025-Annual-Report.pdf",
+
+    "CRT.UN":
+    "https://s22.q4cdn.com/762287231/files/doc_financials/2025/ar/2025_CT-REIT_ANNUAL-REPORT.pdf"
+}
+
+for ticker, link in annual_report_links.items():
+    print(ticker, "→", link)
+
+!pip install pdfplumber --quiet
+
+import pdfplumber
+import requests
+import io
+import re
+
+
+def extract_text_from_pdf(url):
+
+    try:
+
+        response = requests.get(url)
+
+        pdf_file = io.BytesIO(
+            response.content
+        )
+
+        text = ""
+
+        with pdfplumber.open(pdf_file) as pdf:
+
+            for page in pdf.pages:
+
+                page_text = page.extract_text()
+
+                if page_text:
+
+                    text += page_text + "\n"
+
+        return text
+
+    except Exception as e:
+
+        print(e)
+
+        return ""
+
+annual_report_metrics = {}
+
+for ticker, link in annual_report_links.items():
+
+    print(f"\nProcessing {ticker}")
+
+    text = extract_text_from_pdf(link)
+
+    occupancy = re.search(
+        r'(\d+\.\d+)%\s*In-place and Committed\s*Occupancy',
+        text,
+        re.IGNORECASE
+    )
+
+    ffo = re.search(
+        r'FFO\s*/\s*unit.*?\$([\d\.]+)',
+        text,
+        re.IGNORECASE
+    )
+
+    affo = re.search(
+        r'AFFO\s*/\s*unit.*?\$([\d\.]+)',
+        text,
+        re.IGNORECASE
+    )
+
+    nav = re.search(
+        r'NAV per Unit.*?\$([\d\.]+)',
+        text,
+        re.IGNORECASE | re.DOTALL
+    )
+
+    annual_report_metrics[ticker] = {
+
+        "occupancy_rate":
+            occupancy.group(1)
+            if occupancy else None,
+
+        "ffo_per_unit":
+            ffo.group(1)
+            if ffo else None,
+
+        "affo_per_unit":
+            affo.group(1)
+            if affo else None,
+
+        "nav_per_unit":
+            nav.group(1)
+            if nav else None
+    }
+
+annual_df = pd.DataFrame(
+    annual_report_metrics
+).T
+
+annual_df.reset_index(
+    inplace=True
+)
+
+annual_df.rename(
+    columns={
+        "index": "ticker"
+    },
+    inplace=True
+)
+
+competitor_analysis = competitor_analysis.merge(
+    annual_df,
+    on="ticker",
+    how="left"
+)
+
+print("\nAnnual Report Metrics Added")
+
+print(
+    competitor_analysis[
+        [
+            "ticker",
+            "occupancy_rate",
+            "ffo_per_unit",
+            "affo_per_unit",
+            "nav_per_unit"
+        ]
+    ]
+)
+
+print(competitor_analysis.columns)
+
+print(
+    competitor_analysis[
+        [
+            "ticker",
+            "occupancy_rate",
+            "ffo_per_unit",
+            "affo_per_unit",
+            "nav_per_unit"
+        ]
+    ]
+)
+
+
 # ------------------------------------------------------------------------------
 # STEP 8: Export Output
 # ------------------------------------------------------------------------------
@@ -399,3 +569,8 @@ print(f"  {SOURCE}")
 
 print("\nSTAGE 2 COMPLETE")
 print("=" * 70)
+
+
+# Note:
+# Annual report extraction may return null values because
+# report structures and terminology differ across REITs.
