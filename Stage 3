@@ -260,3 +260,2512 @@ print(f"Observations retrieved: {len(df_macro)}")
 print("\nSeries used:")
 for name, details in SERIES.items():
     print(f"  {name}: {details['series_id']} — {details['description']}")
+
+
+
+"""
+===========================================================================
+STAGE 3 VISUAL ANALYSIS
+Macroeconomic Analysis for SmartCentres REIT
+===========================================================================
+
+This script performs:
+
+1. Descriptive statistics
+2. Correlation analysis
+3. Interest-rate trend visualization
+4. Bond yield trend visualization
+5. Comparison chart
+6. Monthly rate-change analysis
+7. Macro environment frequency
+8. Summary report
+
+===========================================================================
+
+"""
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# ---------------------------------------------------------------------
+# STEP 1 Load Data
+# ---------------------------------------------------------------------
+
+print("="*70)
+print("MACROECONOMIC ANALYSIS")
+print("="*70)
+
+df = pd.read_csv("stage3_macroeconomic_indicators.csv")
+
+df["date"] = pd.to_datetime(df["date"])
+
+print("\nDataset Preview")
+print(df.head())
+
+# ---------------------------------------------------------------------
+# STEP 2 Descriptive Statistics
+# ---------------------------------------------------------------------
+
+print("\n")
+print("="*70)
+print("DESCRIPTIVE STATISTICS")
+print("="*70)
+
+stats = df[
+    [
+        "overnight_rate",
+        "bond_yield_5y"
+    ]
+].describe()
+
+print(stats)
+
+stats.to_csv("macro_descriptive_statistics.csv")
+
+# ---------------------------------------------------------------------
+# STEP 3 Correlation
+# ---------------------------------------------------------------------
+
+print("\n")
+print("="*70)
+print("CORRELATION")
+print("="*70)
+
+corr = df[
+    [
+        "overnight_rate",
+        "bond_yield_5y"
+    ]
+].corr()
+
+print(corr)
+
+corr.to_csv("macro_correlation.csv")
+
+# ---------------------------------------------------------------------
+# STEP 4 Overnight Rate Trend
+# ---------------------------------------------------------------------
+
+plt.figure(figsize=(10,5))
+
+plt.plot(
+    df["date"],
+    df["overnight_rate"],
+    marker="o",
+    linewidth=2
+)
+
+plt.title("Bank of Canada Overnight Rate")
+
+plt.xlabel("Date")
+
+plt.ylabel("Rate (%)")
+
+plt.grid(True)
+
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+
+plt.savefig("overnight_rate_trend.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 5 Bond Yield Trend
+# ---------------------------------------------------------------------
+
+plt.figure(figsize=(10,5))
+
+plt.plot(
+    df["date"],
+    df["bond_yield_5y"],
+    marker="s",
+    linewidth=2
+)
+
+plt.title("Government of Canada 5-Year Bond Yield")
+
+plt.xlabel("Date")
+
+plt.ylabel("Yield (%)")
+
+plt.grid(True)
+
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+
+plt.savefig("bond_yield_trend.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 6 Compare Both Indicators
+# ---------------------------------------------------------------------
+
+plt.figure(figsize=(11,6))
+
+plt.plot(
+    df["date"],
+    df["overnight_rate"],
+    label="Overnight Rate",
+    linewidth=2
+)
+
+plt.plot(
+    df["date"],
+    df["bond_yield_5y"],
+    label="5-Year Bond Yield",
+    linewidth=2
+)
+
+plt.legend()
+
+plt.grid(True)
+
+plt.title("Canadian Macroeconomic Indicators")
+
+plt.xlabel("Date")
+
+plt.ylabel("Rate (%)")
+
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+
+plt.savefig("macro_indicator_comparison.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 7 Monthly Change
+# ---------------------------------------------------------------------
+
+plt.figure(figsize=(10,5))
+
+plt.bar(
+    df["date"],
+    df["overnight_rate_change"]
+)
+
+plt.title("Changes in Overnight Rate")
+
+plt.xlabel("Date")
+
+plt.ylabel("Rate Change")
+
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+
+plt.savefig("overnight_rate_changes.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 8 Macro Environment Distribution
+# ---------------------------------------------------------------------
+
+environment_counts = df["macro_environment"].value_counts()
+
+plt.figure(figsize=(8,5))
+
+plt.bar(
+    environment_counts.index,
+    environment_counts.values
+)
+
+plt.title("Macroeconomic Environment Distribution")
+
+plt.xlabel("Environment")
+
+plt.ylabel("Frequency")
+
+plt.tight_layout()
+
+plt.savefig("macro_environment_distribution.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 9 Annual Average
+# ---------------------------------------------------------------------
+
+annual = (
+    df
+    .groupby("year")
+    [
+        [
+            "overnight_rate",
+            "bond_yield_5y"
+        ]
+    ]
+    .mean()
+)
+
+annual.plot(
+    kind="bar",
+    figsize=(9,5)
+)
+
+plt.title("Annual Average Interest Rates")
+
+plt.ylabel("Average Rate (%)")
+
+plt.xticks(rotation=0)
+
+plt.tight_layout()
+
+plt.savefig("annual_macro_summary.png",dpi=300)
+
+plt.show()
+
+# ---------------------------------------------------------------------
+# STEP 10 Automatic Interpretation
+# ---------------------------------------------------------------------
+
+print("\n")
+print("="*70)
+print("AUTOMATIC INTERPRETATION")
+print("="*70)
+
+latest = df.iloc[-1]
+
+print(f"Latest Overnight Rate: {latest['overnight_rate']:.2f}%")
+print(f"Latest 5-Year Bond Yield: {latest['bond_yield_5y']:.2f}%")
+
+avg_rate = df["overnight_rate"].mean()
+avg_bond = df["bond_yield_5y"].mean()
+
+print(f"\nAverage Overnight Rate: {avg_rate:.2f}%")
+print(f"Average Bond Yield: {avg_bond:.2f}%")
+
+if latest["overnight_rate"] > avg_rate:
+    print("\nInterest rates remain above the period average.")
+    print("This may increase borrowing costs for Canadian REITs.")
+else:
+    print("\nInterest rates are below the period average.")
+    print("This may improve financing conditions for Canadian REITs.")
+
+if latest["bond_yield_5y"] > avg_bond:
+    print("\nGovernment bond yields remain elevated.")
+else:
+    print("\nGovernment bond yields remain below the period average.")
+
+print("\nAnalysis Complete.")
+
+print("\nGenerated files:")
+
+print("- macro_descriptive_statistics.csv")
+print("- macro_correlation.csv")
+print("- overnight_rate_trend.png")
+print("- bond_yield_trend.png")
+print("- macro_indicator_comparison.png")
+print("- overnight_rate_changes.png")
+print("- macro_environment_distribution.png")
+print("- annual_macro_summary.png")
+
+# =============================================================================
+# STAGE 3 (STANDALONE) — Canadian Macroeconomic Environment Analysis
+# BSMM-8730 — Canadian REIT Data Pipeline
+# Target Company: SmartCentres REIT (SRU-UN.TO)
+# =============================================================================
+#
+# PURPOSE:
+# Analyze the Canadian macroeconomic environment using:
+#   1. Bank of Canada Policy Interest Rate
+#   2. Canada CPI / Inflation
+#   3. Canada GDP Growth
+#   4. Canada Unemployment Rate
+#
+# The analysis is designed to evaluate whether the Canadian macroeconomic
+# environment is generally Favourable, Neutral, or Unfavourable for
+# SmartCentres REIT.
+#
+# IMPORTANT:
+# This stage is standalone and does NOT require Stage 1, Stage 2, or Stage 3.
+#
+# =============================================================================
+
+
+# =============================================================================
+# 1. IMPORT LIBRARIES
+# =============================================================================
+
+import requests
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
+from datetime import datetime
+from io import BytesIO
+import zipfile
+import warnings
+
+warnings.filterwarnings("ignore")
+
+
+# =============================================================================
+# 2. CONFIGURATION
+# =============================================================================
+
+START_DATE = "2015-01-01"
+END_DATE = datetime.today().strftime("%Y-%m-%d")
+
+OUTPUT_DIR = Path("stage4_macro_output")
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+print("=" * 80)
+print("STAGE 4 — CANADIAN MACROECONOMIC ENVIRONMENT ANALYSIS")
+print("Target Company: SmartCentres REIT (SRU-UN.TO)")
+print("=" * 80)
+
+print(f"\nAnalysis Period: {START_DATE} to {END_DATE}")
+print(f"Output Folder: {OUTPUT_DIR.resolve()}")
+
+
+# =============================================================================
+# 3. HELPER FUNCTIONS
+# =============================================================================
+
+def safe_numeric(series):
+    """
+    Convert a pandas Series to numeric values.
+    Invalid values are converted to NaN.
+    """
+    return pd.to_numeric(series, errors="coerce")
+
+
+def save_chart(filename):
+    """
+    Save the current matplotlib figure.
+    """
+    filepath = OUTPUT_DIR / filename
+    plt.tight_layout()
+    plt.savefig(filepath, dpi=300, bbox_inches="tight")
+    plt.show()
+    plt.close()
+
+    print(f"Saved chart: {filepath}")
+
+
+def print_section(title):
+    """
+    Print formatted section header.
+    """
+    print("\n" + "=" * 80)
+    print(title)
+    print("=" * 80)
+
+
+# =============================================================================
+# 4. BANK OF CANADA — POLICY INTEREST RATE
+# =============================================================================
+
+print_section("1. DOWNLOADING BANK OF CANADA POLICY INTEREST RATE")
+
+# Bank of Canada Valet API
+#
+# V39079 = Bank Rate / policy-related interest rate series.
+#
+# Depending on the exact definition required by the project,
+# this series can be replaced with another Bank of Canada series.
+
+BOC_SERIES = "V39079"
+
+BOC_URL = (
+    f"https://www.bankofcanada.ca/valet/observations/"
+    f"{BOC_SERIES}/json"
+    f"?start_date={START_DATE}"
+    f"&end_date={END_DATE}"
+)
+
+try:
+
+    response = requests.get(BOC_URL, timeout=30)
+    response.raise_for_status()
+
+    data = response.json()
+
+    observations = data.get("observations", [])
+
+    interest_records = []
+
+    for obs in observations:
+
+        date = obs.get("d")
+
+        value_info = obs.get(BOC_SERIES, {})
+
+        value = value_info.get("v")
+
+        if value is not None:
+
+            interest_records.append(
+                {
+                    "Date": date,
+                    "Interest_Rate": value
+                }
+            )
+
+    interest_df = pd.DataFrame(interest_records)
+
+    interest_df["Date"] = pd.to_datetime(
+        interest_df["Date"]
+    )
+
+    interest_df["Interest_Rate"] = safe_numeric(
+        interest_df["Interest_Rate"]
+    )
+
+    interest_df = interest_df.dropna()
+
+    interest_df = interest_df.sort_values("Date")
+
+    print("\nInterest Rate Data Preview:")
+    print(interest_df.head())
+
+    print("\nLatest Interest Rate Observation:")
+    print(interest_df.tail(1))
+
+except Exception as e:
+
+    print("\nERROR downloading Bank of Canada data:")
+    print(e)
+
+    interest_df = pd.DataFrame(
+        columns=[
+            "Date",
+            "Interest_Rate"
+        ]
+    )
+
+
+# =============================================================================
+# 5. STATISTICS CANADA DATA
+# =============================================================================
+#
+# Statistics Canada provides many economic series.
+#
+# The easiest reproducible approach is to use official StatsCan vector data.
+#
+# IMPORTANT:
+# Vector IDs should be verified against Statistics Canada before final
+# submission because StatsCan contains multiple CPI, GDP, and labour-market
+# definitions.
+#
+# The function below downloads a vector from the Statistics Canada Web Data
+# Service.
+#
+# =============================================================================
+
+
+def download_statscan_vector(vector_id, variable_name):
+    """
+    Download a Statistics Canada data vector using the official
+    Web Data Service.
+
+    Parameters
+    ----------
+    vector_id : str
+        Statistics Canada vector number.
+
+    variable_name : str
+        Desired output column name.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame containing Date and variable.
+    """
+
+    print(
+        f"\nDownloading StatsCan vector "
+        f"{vector_id} for {variable_name}..."
+    )
+
+    url = (
+        "https://www150.statcan.gc.ca/"
+        "t1/wds/rest/getFullTableDownloadCSV/"
+        f"{vector_id}/en"
+    )
+
+    try:
+
+        response = requests.get(
+            url,
+            timeout=60
+        )
+
+        response.raise_for_status()
+
+        print(
+            "StatsCan request completed."
+        )
+
+        return None
+
+    except Exception as e:
+
+        print(
+            f"Could not automatically download "
+            f"{variable_name}: {e}"
+        )
+
+        return None
+
+
+# =============================================================================
+# 6. ALTERNATIVE MACRO DATA USING FRED CSV API
+# =============================================================================
+#
+# For easier reproducibility in a classroom environment, the following
+# section uses FRED-hosted macroeconomic series.
+#
+# FRED republishes economic data from official statistical agencies.
+#
+# No API key is required when using the CSV download endpoint.
+#
+# Series used:
+#
+# CPALTT01CAM659N
+#   Canada Consumer Price Index — percentage change
+#
+# NGDPRSAXDCCAQ
+#   Canada Real GDP
+#
+# LRUNTTTTCAM156S
+#   Canada Unemployment Rate
+#
+# =============================================================================
+
+
+def download_fred_series(series_id, column_name):
+    """
+    Download a FRED series using the public CSV endpoint.
+    """
+
+    print(
+        f"\nDownloading {column_name}..."
+    )
+
+    url = (
+        "https://fred.stlouisfed.org/"
+        "graph/fredgraph.csv"
+        f"?id={series_id}"
+    )
+
+    try:
+
+        df = pd.read_csv(url)
+
+        df.columns = [
+            "Date",
+            column_name
+        ]
+
+        df["Date"] = pd.to_datetime(
+            df["Date"]
+        )
+
+        df[column_name] = safe_numeric(
+            df[column_name]
+        )
+
+        df = df.dropna()
+
+        df = df[
+            df["Date"] >= pd.to_datetime(
+                START_DATE
+            )
+        ]
+
+        df = df[
+            df["Date"] <= pd.to_datetime(
+                END_DATE
+            )
+        ]
+
+        df = df.sort_values(
+            "Date"
+        )
+
+        print(
+            f"{column_name} downloaded successfully."
+        )
+
+        print(
+            df.tail()
+        )
+
+        return df
+
+    except Exception as e:
+
+        print(
+            f"ERROR downloading {column_name}:"
+        )
+
+        print(e)
+
+        return pd.DataFrame(
+            columns=[
+                "Date",
+                column_name
+            ]
+        )
+
+
+# =============================================================================
+# 7. DOWNLOAD CPI / INFLATION
+# =============================================================================
+
+print_section("2. DOWNLOADING CANADA CPI / INFLATION DATA")
+
+INFLATION_SERIES = "CPALTT01CAM659N"
+
+inflation_df = download_fred_series(
+    INFLATION_SERIES,
+    "Inflation_Rate"
+)
+
+
+# =============================================================================
+# 8. DOWNLOAD CANADA GDP
+# =============================================================================
+
+print_section("3. DOWNLOADING CANADA GDP DATA")
+
+GDP_SERIES = "NGDPRSAXDCCAQ"
+
+gdp_df = download_fred_series(
+    GDP_SERIES,
+    "Real_GDP"
+)
+
+
+# Calculate quarterly GDP growth
+
+if not gdp_df.empty:
+
+    gdp_df["GDP_Growth"] = (
+        gdp_df["Real_GDP"]
+        .pct_change()
+        * 100
+    )
+
+    gdp_df = gdp_df.dropna()
+
+    print(
+        "\nCalculated GDP Growth:"
+    )
+
+    print(
+        gdp_df.tail()
+    )
+
+
+# =============================================================================
+# 9. DOWNLOAD CANADA UNEMPLOYMENT RATE
+# =============================================================================
+
+print_section("4. DOWNLOADING CANADA UNEMPLOYMENT DATA")
+
+UNEMPLOYMENT_SERIES = "LRUNTTTTCAM156S"
+
+unemployment_df = download_fred_series(
+    UNEMPLOYMENT_SERIES,
+    "Unemployment_Rate"
+)
+
+
+# =============================================================================
+# 10. CONVERT INTEREST RATE TO MONTHLY FREQUENCY
+# =============================================================================
+
+print_section("5. PREPARING DATA")
+
+if not interest_df.empty:
+
+    interest_monthly = (
+        interest_df
+        .set_index("Date")
+        .resample("ME")
+        .last()
+        .reset_index()
+    )
+
+else:
+
+    interest_monthly = interest_df.copy()
+
+
+# =============================================================================
+# 11. CREATE LATEST ECONOMIC SNAPSHOT
+# =============================================================================
+
+latest_values = {}
+
+
+if not interest_monthly.empty:
+
+    latest_values[
+        "Interest Rate (%)"
+    ] = interest_monthly[
+        "Interest_Rate"
+    ].iloc[-1]
+
+
+if not inflation_df.empty:
+
+    latest_values[
+        "Inflation Rate (%)"
+    ] = inflation_df[
+        "Inflation_Rate"
+    ].iloc[-1]
+
+
+if not gdp_df.empty:
+
+    latest_values[
+        "GDP Growth (%)"
+    ] = gdp_df[
+        "GDP_Growth"
+    ].iloc[-1]
+
+
+if not unemployment_df.empty:
+
+    latest_values[
+        "Unemployment Rate (%)"
+    ] = unemployment_df[
+        "Unemployment_Rate"
+    ].iloc[-1]
+
+
+snapshot_df = pd.DataFrame(
+    latest_values.items(),
+    columns=[
+        "Indicator",
+        "Latest_Value"
+    ]
+)
+
+
+print("\nLatest Canadian Macroeconomic Snapshot:")
+
+print(snapshot_df)
+
+
+snapshot_df.to_csv(
+    OUTPUT_DIR /
+    "canada_macro_latest_snapshot.csv",
+    index=False
+)
+
+
+# =============================================================================
+# 12. DESCRIPTIVE STATISTICS
+# =============================================================================
+
+print_section("6. DESCRIPTIVE STATISTICS")
+
+statistics = []
+
+
+def add_statistics(df, column, indicator):
+
+    if df.empty:
+        return
+
+    statistics.append(
+        {
+            "Indicator": indicator,
+
+            "Mean":
+                df[column].mean(),
+
+            "Median":
+                df[column].median(),
+
+            "Minimum":
+                df[column].min(),
+
+            "Maximum":
+                df[column].max(),
+
+            "Standard_Deviation":
+                df[column].std(),
+
+            "Latest":
+                df[column].iloc[-1]
+        }
+    )
+
+
+add_statistics(
+    interest_monthly,
+    "Interest_Rate",
+    "Interest Rate"
+)
+
+add_statistics(
+    inflation_df,
+    "Inflation_Rate",
+    "Inflation Rate"
+)
+
+add_statistics(
+    gdp_df,
+    "GDP_Growth",
+    "GDP Growth"
+)
+
+add_statistics(
+    unemployment_df,
+    "Unemployment_Rate",
+    "Unemployment Rate"
+)
+
+
+statistics_df = pd.DataFrame(
+    statistics
+)
+
+
+print(
+    statistics_df.round(2)
+)
+
+
+statistics_df.to_csv(
+    OUTPUT_DIR /
+    "canada_macro_descriptive_statistics.csv",
+    index=False
+)
+
+
+# =============================================================================
+# 13. INTEREST RATE TREND
+# =============================================================================
+
+print_section("7. CREATING VISUALIZATIONS")
+
+
+if not interest_monthly.empty:
+
+    plt.figure(
+        figsize=(12, 6)
+    )
+
+    plt.plot(
+        interest_monthly["Date"],
+        interest_monthly["Interest_Rate"]
+    )
+
+    plt.title(
+        "Canada Interest Rate Trend"
+    )
+
+    plt.xlabel(
+        "Year"
+    )
+
+    plt.ylabel(
+        "Interest Rate (%)"
+    )
+
+    plt.grid(
+        alpha=0.3
+    )
+
+    save_chart(
+        "01_canada_interest_rate.png"
+    )
+
+
+# =============================================================================
+# 14. INFLATION TREND
+# =============================================================================
+
+if not inflation_df.empty:
+
+    plt.figure(
+        figsize=(12, 6)
+    )
+
+    plt.plot(
+        inflation_df["Date"],
+        inflation_df["Inflation_Rate"]
+    )
+
+    plt.axhline(
+        y=2,
+        linestyle="--",
+        label="2% Inflation Reference"
+    )
+
+    plt.title(
+        "Canada CPI / Inflation Trend"
+    )
+
+    plt.xlabel(
+        "Year"
+    )
+
+    plt.ylabel(
+        "Inflation Rate (%)"
+    )
+
+    plt.legend()
+
+    plt.grid(
+        alpha=0.3
+    )
+
+    save_chart(
+        "02_canada_inflation.png"
+    )
+
+
+# =============================================================================
+# 15. GDP GROWTH TREND
+# =============================================================================
+
+if not gdp_df.empty:
+
+    plt.figure(
+        figsize=(12, 6)
+    )
+
+    plt.plot(
+        gdp_df["Date"],
+        gdp_df["GDP_Growth"]
+    )
+
+    plt.axhline(
+        y=0,
+        linestyle="--"
+    )
+
+    plt.title(
+        "Canada Real GDP Growth"
+    )
+
+    plt.xlabel(
+        "Year"
+    )
+
+    plt.ylabel(
+        "Quarterly GDP Growth (%)"
+    )
+
+    plt.grid(
+        alpha=0.3
+    )
+
+    save_chart(
+        "03_canada_gdp_growth.png"
+    )
+
+
+# =============================================================================
+# 16. UNEMPLOYMENT RATE TREND
+# =============================================================================
+
+if not unemployment_df.empty:
+
+    plt.figure(
+        figsize=(12, 6)
+    )
+
+    plt.plot(
+        unemployment_df["Date"],
+        unemployment_df[
+            "Unemployment_Rate"
+        ]
+    )
+
+    plt.title(
+        "Canada Unemployment Rate"
+    )
+
+    plt.xlabel(
+        "Year"
+    )
+
+    plt.ylabel(
+        "Unemployment Rate (%)"
+    )
+
+    plt.grid(
+        alpha=0.3
+    )
+
+    save_chart(
+        "04_canada_unemployment.png"
+    )
+
+
+# =============================================================================
+# 17. MACROECONOMIC ASSESSMENT FOR SMARTCENTRES REIT
+# =============================================================================
+
+print_section(
+    "8. MACROECONOMIC ASSESSMENT FOR SMARTCENTRES REIT"
+)
+
+
+assessment = []
+
+score = 0
+
+
+# -----------------------------------------------------------------------------
+# Interest Rate Assessment
+# -----------------------------------------------------------------------------
+
+if not interest_monthly.empty:
+
+    current_rate = interest_monthly[
+        "Interest_Rate"
+    ].iloc[-1]
+
+    historical_mean = interest_monthly[
+        "Interest_Rate"
+    ].mean()
+
+    if current_rate < historical_mean:
+
+        rate_outlook = "Favourable"
+
+        rate_explanation = (
+            "The current interest rate is below its "
+            "historical average in the analysis period. "
+            "Lower interest rates may reduce borrowing and "
+            "refinancing costs for REITs and may improve "
+            "the relative attractiveness of dividend income."
+        )
+
+        score += 1
+
+    elif current_rate > historical_mean * 1.20:
+
+        rate_outlook = "Unfavourable"
+
+        rate_explanation = (
+            "The current interest rate is relatively high "
+            "compared with the historical average. "
+            "Higher interest rates may increase borrowing "
+            "and refinancing costs and place pressure on "
+            "REIT valuations."
+        )
+
+        score -= 1
+
+    else:
+
+        rate_outlook = "Neutral"
+
+        rate_explanation = (
+            "The current interest rate is relatively close "
+            "to its historical average. The interest-rate "
+            "environment does not provide a strong positive "
+            "or negative signal for SmartCentres REIT."
+        )
+
+
+    assessment.append(
+        {
+            "Factor":
+                "Interest Rate",
+
+            "Outlook":
+                rate_outlook,
+
+            "Explanation":
+                rate_explanation
+        }
+    )
+
+
+# -----------------------------------------------------------------------------
+# Inflation Assessment
+# -----------------------------------------------------------------------------
+
+if not inflation_df.empty:
+
+    current_inflation = inflation_df[
+        "Inflation_Rate"
+    ].iloc[-1]
+
+    if 1 <= current_inflation <= 3:
+
+        inflation_outlook = "Favourable"
+
+        inflation_explanation = (
+            "Inflation is within a relatively moderate range. "
+            "Stable inflation may support predictable operating "
+            "costs and reduce pressure for aggressive monetary "
+            "policy tightening."
+        )
+
+        score += 1
+
+    elif current_inflation > 4:
+
+        inflation_outlook = "Unfavourable"
+
+        inflation_explanation = (
+            "Inflation is relatively high. Persistent inflation "
+            "may increase operating costs and contribute to "
+            "higher interest rates, creating potential pressure "
+            "on REIT performance."
+        )
+
+        score -= 1
+
+    else:
+
+        inflation_outlook = "Neutral"
+
+        inflation_explanation = (
+            "Inflation conditions provide a mixed economic "
+            "signal for SmartCentres REIT."
+        )
+
+
+    assessment.append(
+        {
+            "Factor":
+                "Inflation",
+
+            "Outlook":
+                inflation_outlook,
+
+            "Explanation":
+                inflation_explanation
+        }
+    )
+
+
+# -----------------------------------------------------------------------------
+# GDP Growth Assessment
+# -----------------------------------------------------------------------------
+
+if not gdp_df.empty:
+
+    current_gdp_growth = gdp_df[
+        "GDP_Growth"
+    ].iloc[-1]
+
+    if current_gdp_growth > 0.5:
+
+        gdp_outlook = "Favourable"
+
+        gdp_explanation = (
+            "Positive GDP growth indicates expanding economic "
+            "activity. A stronger economy may support retail "
+            "activity, tenant performance, and demand for "
+            "commercial real estate."
+        )
+
+        score += 1
+
+    elif current_gdp_growth < 0:
+
+        gdp_outlook = "Unfavourable"
+
+        gdp_explanation = (
+            "Negative GDP growth indicates economic contraction. "
+            "A weaker economy may negatively affect consumer "
+            "spending and retail tenant performance."
+        )
+
+        score -= 1
+
+    else:
+
+        gdp_outlook = "Neutral"
+
+        gdp_explanation = (
+            "GDP growth is positive but relatively weak, "
+            "indicating limited economic momentum."
+        )
+
+
+    assessment.append(
+        {
+            "Factor":
+                "GDP Growth",
+
+            "Outlook":
+                gdp_outlook,
+
+            "Explanation":
+                gdp_explanation
+        }
+    )
+
+
+# -----------------------------------------------------------------------------
+# Unemployment Assessment
+# -----------------------------------------------------------------------------
+
+if not unemployment_df.empty:
+
+    current_unemployment = unemployment_df[
+        "Unemployment_Rate"
+    ].iloc[-1]
+
+    historical_unemployment = unemployment_df[
+        "Unemployment_Rate"
+    ].mean()
+
+    if current_unemployment < historical_unemployment:
+
+        unemployment_outlook = "Favourable"
+
+        unemployment_explanation = (
+            "The unemployment rate is below its historical "
+            "average in the analysis period. Strong employment "
+            "conditions may support household income and "
+            "consumer spending."
+        )
+
+        score += 1
+
+    elif (
+        current_unemployment >
+        historical_unemployment * 1.15
+    ):
+
+        unemployment_outlook = "Unfavourable"
+
+        unemployment_explanation = (
+            "The unemployment rate is relatively high compared "
+            "with its historical average. Weaker labour-market "
+            "conditions may reduce consumer spending and create "
+            "challenges for retail tenants."
+        )
+
+        score -= 1
+
+    else:
+
+        unemployment_outlook = "Neutral"
+
+        unemployment_explanation = (
+            "The unemployment rate is relatively close to its "
+            "historical average and provides a neutral signal "
+            "for the retail real estate environment."
+        )
+
+
+    assessment.append(
+        {
+            "Factor":
+                "Unemployment Rate",
+
+            "Outlook":
+                unemployment_outlook,
+
+            "Explanation":
+                unemployment_explanation
+        }
+    )
+
+
+# =============================================================================
+# 18. OVERALL MACROECONOMIC OUTLOOK
+# =============================================================================
+
+assessment_df = pd.DataFrame(
+    assessment
+)
+
+
+if score >= 2:
+
+    overall_outlook = "FAVOURABLE"
+
+elif score <= -2:
+
+    overall_outlook = "UNFAVOURABLE"
+
+else:
+
+    overall_outlook = "NEUTRAL / MIXED"
+
+
+print("\nIndividual Macroeconomic Factors:")
+
+for _, row in assessment_df.iterrows():
+
+    print(
+        f"\n{row['Factor']}: "
+        f"{row['Outlook']}"
+    )
+
+    print(
+        row["Explanation"]
+    )
+
+
+print("\n" + "-" * 80)
+
+print(
+    f"OVERALL MACROECONOMIC OUTLOOK: "
+    f"{overall_outlook}"
+)
+
+print(
+    f"MACROECONOMIC SCORE: {score}"
+)
+
+print("-" * 80)
+
+
+# =============================================================================
+# 19. FINAL INVESTMENT INTERPRETATION
+# =============================================================================
+
+print_section(
+    "9. FINAL INTERPRETATION"
+)
+
+
+if overall_outlook == "FAVOURABLE":
+
+    final_interpretation = """
+The current Canadian macroeconomic environment appears generally favourable
+for SmartCentres REIT. The combination of interest-rate conditions, inflation,
+economic growth, and labour-market conditions provides an overall supportive
+environment for a retail-focused REIT.
+
+From an investment perspective, these macroeconomic conditions strengthen the
+case for SmartCentres as a potential long-term income investment. However,
+macroeconomic indicators should be considered together with company-specific
+financial performance, valuation, debt levels, and competitive positioning.
+"""
+
+
+elif overall_outlook == "UNFAVOURABLE":
+
+    final_interpretation = """
+The current Canadian macroeconomic environment presents several challenges for
+SmartCentres REIT. Higher financing costs, inflationary pressure, weak economic
+growth, or deteriorating labour-market conditions may negatively affect REIT
+valuations and retail-sector performance.
+
+Investors should therefore exercise caution and evaluate SmartCentres'
+financial strength, debt structure, occupancy rates, and dividend sustainability
+before making an investment decision.
+"""
+
+
+else:
+
+    final_interpretation = """
+The current Canadian macroeconomic environment presents a mixed outlook for
+SmartCentres REIT. Some economic indicators may provide supportive conditions,
+while others may create potential risks for financing costs, consumer spending,
+and retail-sector performance.
+
+Therefore, the macroeconomic analysis does not provide a strong standalone
+buy or avoid signal. Instead, these findings should be combined with the
+historical performance, competitor benchmarking, and market analysis from the
+earlier stages of the project to support the final investment recommendation.
+"""
+
+
+print(
+    final_interpretation
+)
+
+
+# =============================================================================
+# 20. EXPORT RESULTS
+# =============================================================================
+
+assessment_df[
+    "Overall_Macro_Outlook"
+] = overall_outlook
+
+
+assessment_df[
+    "Macro_Score"
+] = score
+
+
+assessment_df.to_csv(
+    OUTPUT_DIR /
+    "smartcentres_macro_assessment.csv",
+    index=False
+)
+
+
+with open(
+    OUTPUT_DIR /
+    "smartcentres_macro_final_interpretation.txt",
+    "w",
+    encoding="utf-8"
+) as file:
+
+    file.write(
+        "STAGE 4 — CANADIAN MACROECONOMIC ENVIRONMENT ANALYSIS\n"
+    )
+
+    file.write(
+        "Target Company: SmartCentres REIT (SRU-UN.TO)\n\n"
+    )
+
+    file.write(
+        f"Overall Macroeconomic Outlook: "
+        f"{overall_outlook}\n"
+    )
+
+    file.write(
+        f"Macroeconomic Score: "
+        f"{score}\n\n"
+    )
+
+    file.write(
+        final_interpretation
+    )
+
+
+# =============================================================================
+# 21. FINAL SUMMARY
+# =============================================================================
+
+print_section(
+    "STAGE 4 COMPLETE"
+)
+
+print(
+    "Analysis completed successfully."
+)
+
+print(
+    f"\nOverall Macroeconomic Outlook: "
+    f"{overall_outlook}"
+)
+
+print(
+    f"Macroeconomic Score: "
+    f"{score}"
+)
+
+print(
+    "\nGenerated Outputs:"
+)
+
+print(
+    "1. canada_macro_latest_snapshot.csv"
+)
+
+print(
+    "2. canada_macro_descriptive_statistics.csv"
+)
+
+print(
+    "3. smartcentres_macro_assessment.csv"
+)
+
+print(
+    "4. smartcentres_macro_final_interpretation.txt"
+)
+
+print(
+    "5. 01_canada_interest_rate.png"
+)
+
+print(
+    "6. 02_canada_inflation.png"
+)
+
+print(
+    "7. 03_canada_gdp_growth.png"
+)
+
+print(
+    "8. 04_canada_unemployment.png"
+)
+
+print(
+    "\nAll files saved to:"
+)
+
+print(
+    OUTPUT_DIR.resolve()
+)
+
+print(
+    "\n" + "=" * 80
+)
+
+
+# =============================================================================
+# STAGE 3B — CORRELATION ANALYSIS
+# Macroeconomic Factors vs SmartCentres REIT (SRU-UN.TO)
+# =============================================================================
+#
+# PURPOSE:
+# Analyze the statistical relationships between SmartCentres monthly returns
+# and four Canadian macroeconomic indicators:
+#
+#   1. Interest Rate
+#   2. Inflation Rate
+#   3. GDP Growth
+#   4. Unemployment Rate
+#
+# REQUIRED FROM PREVIOUS STAGE 4 CODE:
+#
+#   interest_monthly
+#   inflation_df
+#   gdp_df
+#   unemployment_df
+#
+# =============================================================================
+
+
+# =============================================================================
+# 1. IMPORT LIBRARIES
+# =============================================================================
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import yfinance as yf
+from pathlib import Path
+
+
+# =============================================================================
+# 2. CONFIGURATION
+# =============================================================================
+
+START_DATE = "2015-01-01"
+END_DATE = pd.Timestamp.today().strftime("%Y-%m-%d")
+
+OUTPUT_DIR = Path("stage4_macro_output")
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+TICKER = "SRU-UN.TO"
+
+
+print("=" * 80)
+print("STAGE 4B — MACROECONOMIC CORRELATION ANALYSIS")
+print("Target Company: SmartCentres REIT (SRU-UN.TO)")
+print("=" * 80)
+
+
+# =============================================================================
+# 3. DOWNLOAD SMARTCENTRES HISTORICAL STOCK DATA
+# =============================================================================
+
+print("\nDownloading SmartCentres historical stock data...")
+
+
+sru = yf.download(
+    TICKER,
+    start=START_DATE,
+    end=END_DATE,
+    auto_adjust=True,
+    progress=False
+)
+
+
+if sru.empty:
+
+    raise ValueError(
+        "No SmartCentres stock data were downloaded."
+    )
+
+
+# Handle possible MultiIndex columns from yfinance
+
+if isinstance(sru.columns, pd.MultiIndex):
+
+    sru.columns = sru.columns.get_level_values(0)
+
+
+sru = sru.reset_index()
+
+
+print("\nSmartCentres Data Preview:")
+
+print(
+    sru.head()
+)
+
+
+# =============================================================================
+# 4. CONVERT DAILY STOCK PRICES TO MONTHLY PRICES
+# =============================================================================
+#
+# We use the last available adjusted closing price of each month.
+#
+# Monthly return:
+#
+# (Current Month Price / Previous Month Price - 1) * 100
+#
+# =============================================================================
+
+
+sru["Date"] = pd.to_datetime(
+    sru["Date"]
+)
+
+
+sru_monthly = (
+    sru
+    .set_index("Date")
+    .resample("ME")
+    .last()
+    .reset_index()
+)
+
+
+sru_monthly["SRU_Return"] = (
+    sru_monthly["Close"]
+    .pct_change()
+    * 100
+)
+
+
+sru_monthly = sru_monthly[
+    [
+        "Date",
+        "Close",
+        "SRU_Return"
+    ]
+]
+
+
+sru_monthly = sru_monthly.dropna()
+
+
+print("\nSmartCentres Monthly Returns:")
+
+print(
+    sru_monthly.tail()
+)
+
+
+# =============================================================================
+# 5. PREPARE INTEREST RATE DATA
+# =============================================================================
+
+
+interest_macro = interest_monthly.copy()
+
+
+interest_macro["Date"] = pd.to_datetime(
+    interest_macro["Date"]
+)
+
+
+interest_macro = (
+    interest_macro
+    .set_index("Date")
+    .resample("ME")
+    .last()
+    .reset_index()
+)
+
+
+interest_macro = interest_macro[
+    [
+        "Date",
+        "Interest_Rate"
+    ]
+]
+
+
+# =============================================================================
+# 6. PREPARE INFLATION DATA
+# =============================================================================
+
+
+inflation_macro = inflation_df.copy()
+
+
+inflation_macro["Date"] = pd.to_datetime(
+    inflation_macro["Date"]
+)
+
+
+inflation_macro = (
+    inflation_macro
+    .set_index("Date")
+    .resample("ME")
+    .last()
+    .reset_index()
+)
+
+
+inflation_macro = inflation_macro[
+    [
+        "Date",
+        "Inflation_Rate"
+    ]
+]
+
+
+# =============================================================================
+# 7. PREPARE UNEMPLOYMENT DATA
+# =============================================================================
+
+
+unemployment_macro = unemployment_df.copy()
+
+
+unemployment_macro["Date"] = pd.to_datetime(
+    unemployment_macro["Date"]
+)
+
+
+unemployment_macro = (
+    unemployment_macro
+    .set_index("Date")
+    .resample("ME")
+    .last()
+    .reset_index()
+)
+
+
+unemployment_macro = unemployment_macro[
+    [
+        "Date",
+        "Unemployment_Rate"
+    ]
+]
+
+
+# =============================================================================
+# 8. PREPARE GDP DATA
+# =============================================================================
+#
+# GDP data are usually quarterly.
+#
+# We forward-fill the latest available GDP growth value across the months
+# within the quarter so that the data can be merged with monthly returns.
+#
+# =============================================================================
+
+
+gdp_macro = gdp_df.copy()
+
+
+gdp_macro["Date"] = pd.to_datetime(
+    gdp_macro["Date"]
+)
+
+
+gdp_macro = (
+    gdp_macro
+    .set_index("Date")
+    .resample("ME")
+    .ffill()
+    .reset_index()
+)
+
+
+gdp_macro = gdp_macro[
+    [
+        "Date",
+        "GDP_Growth"
+    ]
+]
+
+
+# =============================================================================
+# 9. MERGE ALL MACROECONOMIC DATA
+# =============================================================================
+
+
+macro_data = interest_macro.merge(
+    inflation_macro,
+    on="Date",
+    how="outer"
+)
+
+
+macro_data = macro_data.merge(
+    unemployment_macro,
+    on="Date",
+    how="outer"
+)
+
+
+macro_data = macro_data.merge(
+    gdp_macro,
+    on="Date",
+    how="outer"
+)
+
+
+macro_data = macro_data.sort_values(
+    "Date"
+)
+
+
+# Forward fill macroeconomic values
+
+macro_columns = [
+    "Interest_Rate",
+    "Inflation_Rate",
+    "GDP_Growth",
+    "Unemployment_Rate"
+]
+
+
+macro_data[macro_columns] = (
+    macro_data[macro_columns]
+    .ffill()
+)
+
+
+print("\nCombined Macroeconomic Data:")
+
+print(
+    macro_data.tail()
+)
+
+
+# =============================================================================
+# 10. MERGE SMARTCENTRES RETURNS WITH MACROECONOMIC DATA
+# =============================================================================
+
+
+analysis_df = sru_monthly.merge(
+    macro_data,
+    on="Date",
+    how="inner"
+)
+
+
+analysis_df = analysis_df.dropna(
+    subset=[
+        "SRU_Return",
+        "Interest_Rate",
+        "Inflation_Rate",
+        "GDP_Growth",
+        "Unemployment_Rate"
+    ]
+)
+
+
+print("\nFinal Correlation Dataset:")
+
+print(
+    analysis_df.head()
+)
+
+
+print(
+    "\nNumber of Observations:",
+    len(analysis_df)
+)
+
+
+# =============================================================================
+# 11. CALCULATE PEARSON CORRELATION MATRIX
+# =============================================================================
+
+
+correlation_columns = [
+    "SRU_Return",
+    "Interest_Rate",
+    "Inflation_Rate",
+    "GDP_Growth",
+    "Unemployment_Rate"
+]
+
+
+correlation_matrix = analysis_df[
+    correlation_columns
+].corr()
+
+
+print("\n" + "=" * 80)
+
+print(
+    "PEARSON CORRELATION MATRIX"
+)
+
+print("=" * 80)
+
+
+print(
+    correlation_matrix.round(3)
+)
+
+
+# =============================================================================
+# 12. EXTRACT CORRELATIONS WITH SMARTCENTRES RETURNS
+# =============================================================================
+
+
+sru_correlations = (
+    correlation_matrix[
+        "SRU_Return"
+    ]
+    .drop(
+        "SRU_Return"
+    )
+    .sort_values(
+        key=abs,
+        ascending=False
+    )
+)
+
+
+print("\n" + "=" * 80)
+
+print(
+    "CORRELATION WITH SMARTCENTRES MONTHLY RETURNS"
+)
+
+print("=" * 80)
+
+
+print(
+    sru_correlations.round(3)
+)
+
+
+# =============================================================================
+# 13. INTERPRET CORRELATION STRENGTH
+# =============================================================================
+
+
+def interpret_correlation(r):
+
+    absolute_r = abs(r)
+
+
+    if absolute_r >= 0.7:
+
+        strength = "Strong"
+
+
+    elif absolute_r >= 0.4:
+
+        strength = "Moderate"
+
+
+    elif absolute_r >= 0.2:
+
+        strength = "Weak"
+
+
+    else:
+
+        strength = "Very Weak"
+
+
+    if r > 0:
+
+        direction = "Positive"
+
+
+    elif r < 0:
+
+        direction = "Negative"
+
+
+    else:
+
+        direction = "No"
+
+
+    return strength, direction
+
+
+# =============================================================================
+# 14. CREATE CORRELATION FINDINGS
+# =============================================================================
+
+
+findings = []
+
+
+for variable, correlation in sru_correlations.items():
+
+
+    strength, direction = interpret_correlation(
+        correlation
+    )
+
+
+    findings.append(
+        {
+            "Macroeconomic_Factor":
+                variable,
+
+            "Correlation_with_SRU_Return":
+                correlation,
+
+            "Strength":
+                strength,
+
+            "Direction":
+                direction
+        }
+    )
+
+
+findings_df = pd.DataFrame(
+    findings
+)
+
+
+print("\nCorrelation Findings:")
+
+
+print(
+    findings_df.round(3)
+)
+
+
+# =============================================================================
+# 15. AUTOMATIC INTERPRETATION
+# =============================================================================
+
+
+print("\n" + "=" * 80)
+
+print(
+    "AUTOMATIC CORRELATION INTERPRETATION"
+)
+
+print("=" * 80)
+
+
+factor_names = {
+
+    "Interest_Rate":
+        "Interest Rate",
+
+    "Inflation_Rate":
+        "Inflation",
+
+    "GDP_Growth":
+        "GDP Growth",
+
+    "Unemployment_Rate":
+        "Unemployment Rate"
+
+}
+
+
+for variable, correlation in sru_correlations.items():
+
+
+    strength, direction = interpret_correlation(
+        correlation
+    )
+
+
+    factor = factor_names.get(
+        variable,
+        variable
+    )
+
+
+    print(
+        f"\n{factor}"
+    )
+
+
+    print(
+        f"Correlation: {correlation:.3f}"
+    )
+
+
+    print(
+        f"Relationship: "
+        f"{strength} {direction}"
+    )
+
+
+    if correlation < 0:
+
+        print(
+            f"Interpretation: Higher {factor.lower()} "
+            f"tends to be associated with lower "
+            f"SmartCentres monthly returns."
+        )
+
+
+    elif correlation > 0:
+
+        print(
+            f"Interpretation: Higher {factor.lower()} "
+            f"tends to be associated with higher "
+            f"SmartCentres monthly returns."
+        )
+
+
+    else:
+
+        print(
+            "Interpretation: No linear relationship "
+            "was detected."
+        )
+
+
+# =============================================================================
+# 16. IDENTIFY STRONGEST MACROECONOMIC RELATIONSHIP
+# =============================================================================
+
+
+if not sru_correlations.empty:
+
+
+    strongest_factor = (
+        sru_correlations
+        .abs()
+        .idxmax()
+    )
+
+
+    strongest_correlation = (
+        sru_correlations[
+            strongest_factor
+        ]
+    )
+
+
+    strongest_strength, strongest_direction = (
+        interpret_correlation(
+            strongest_correlation
+        )
+    )
+
+
+    print("\n" + "=" * 80)
+
+    print(
+        "KEY FINDING"
+    )
+
+    print("=" * 80)
+
+
+    print(
+        f"The macroeconomic factor with the strongest "
+        f"linear relationship with SmartCentres monthly "
+        f"returns is "
+        f"{factor_names.get(strongest_factor, strongest_factor)}."
+    )
+
+
+    print(
+        f"Correlation coefficient: "
+        f"{strongest_correlation:.3f}"
+    )
+
+
+    print(
+        f"Relationship: "
+        f"{strongest_strength} "
+        f"{strongest_direction}"
+    )
+
+
+# =============================================================================
+# 17. CREATE CORRELATION HEATMAP
+# =============================================================================
+#
+# This creates a correlation matrix visualization without seaborn.
+#
+# =============================================================================
+
+
+fig, ax = plt.subplots(
+    figsize=(9, 7)
+)
+
+
+heatmap = ax.imshow(
+    correlation_matrix.values,
+    aspect="auto"
+)
+
+
+ax.set_xticks(
+    range(
+        len(correlation_columns)
+    )
+)
+
+
+ax.set_yticks(
+    range(
+        len(correlation_columns)
+    )
+)
+
+
+display_labels = [
+    "SRU Return",
+    "Interest Rate",
+    "Inflation",
+    "GDP Growth",
+    "Unemployment"
+]
+
+
+ax.set_xticklabels(
+    display_labels,
+    rotation=45,
+    ha="right"
+)
+
+
+ax.set_yticklabels(
+    display_labels
+)
+
+
+for i in range(
+    len(correlation_columns)
+):
+
+    for j in range(
+        len(correlation_columns)
+    ):
+
+        ax.text(
+            j,
+            i,
+            f"{correlation_matrix.iloc[i, j]:.2f}",
+            ha="center",
+            va="center"
+        )
+
+
+plt.title(
+    "Correlation Matrix: SmartCentres Returns "
+    "and Canadian Macroeconomic Factors"
+)
+
+
+plt.colorbar(
+    heatmap,
+    label="Pearson Correlation"
+)
+
+
+plt.tight_layout()
+
+
+plt.savefig(
+    OUTPUT_DIR /
+    "05_sru_macro_correlation_heatmap.png",
+    dpi=300,
+    bbox_inches="tight"
+)
+
+
+plt.show()
+
+plt.close()
+
+
+# =============================================================================
+# 18. CREATE INDIVIDUAL SCATTER PLOTS
+# =============================================================================
+
+
+for variable in [
+
+    "Interest_Rate",
+
+    "Inflation_Rate",
+
+    "GDP_Growth",
+
+    "Unemployment_Rate"
+
+]:
+
+    plt.figure(
+        figsize=(8, 6)
+    )
+
+
+    plt.scatter(
+        analysis_df[variable],
+        analysis_df["SRU_Return"],
+        alpha=0.6
+    )
+
+
+    # Add linear trend line
+
+    x = analysis_df[
+        variable
+    ].values
+
+
+    y = analysis_df[
+        "SRU_Return"
+    ].values
+
+
+    if len(x) > 1:
+
+        slope, intercept = np.polyfit(
+            x,
+            y,
+            1
+        )
+
+
+        plt.plot(
+            x,
+            slope * x + intercept
+        )
+
+
+    correlation_value = (
+        correlation_matrix
+        .loc[
+            variable,
+            "SRU_Return"
+        ]
+    )
+
+
+    plt.title(
+        f"{factor_names[variable]} vs "
+        f"SmartCentres Monthly Return\n"
+        f"Correlation = {correlation_value:.3f}"
+    )
+
+
+    plt.xlabel(
+        factor_names[
+            variable
+        ]
+    )
+
+
+    plt.ylabel(
+        "SmartCentres Monthly Return (%)"
+    )
+
+
+    plt.grid(
+        alpha=0.3
+    )
+
+
+    filename = (
+        f"scatter_"
+        f"{variable.lower()}"
+        f"_vs_sru_return.png"
+    )
+
+
+    plt.tight_layout()
+
+
+    plt.savefig(
+        OUTPUT_DIR /
+        filename,
+        dpi=300,
+        bbox_inches="tight"
+    )
+
+
+    plt.show()
+
+    plt.close()
+
+
+# =============================================================================
+# 19. EXPORT RESULTS
+# =============================================================================
+
+
+analysis_df.to_csv(
+
+    OUTPUT_DIR /
+    "sru_macro_correlation_dataset.csv",
+
+    index=False
+
+)
+
+
+correlation_matrix.to_csv(
+
+    OUTPUT_DIR /
+    "sru_macro_correlation_matrix.csv"
+
+)
+
+
+findings_df.to_csv(
+
+    OUTPUT_DIR /
+    "sru_macro_correlation_findings.csv",
+
+    index=False
+
+)
+
+
+print("\n" + "=" * 80)
+
+print(
+    "CORRELATION ANALYSIS COMPLETE"
+)
+
+print("=" * 80)
+
+
+print(
+    "\nGenerated Outputs:"
+)
+
+
+print(
+    "1. sru_macro_correlation_dataset.csv"
+)
+
+
+print(
+    "2. sru_macro_correlation_matrix.csv"
+)
+
+
+print(
+    "3. sru_macro_correlation_findings.csv"
+)
+
+
+print(
+    "4. 05_sru_macro_correlation_heatmap.png"
+)
+
+
+print(
+    "5. Four individual macroeconomic scatter plots"
+)
+
+
+print(
+    "\nAll files saved to:"
+)
+
+
+print(
+    OUTPUT_DIR.resolve()
+)
