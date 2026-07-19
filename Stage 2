@@ -6,12 +6,20 @@ Target Company: SmartCentres REIT (SRU-UN.TO)
 ================================================================================
 
 WHAT THIS SCRIPT DOES:
-1. Scrapes Canadian REIT comparison data from WOWA
-2. Extracts Ticker, Company, Market Cap, Dividend Yield, and Property Type
-3. Filters for Retail REIT competitors
-4. Builds a competitor benchmarking dataset
-5. Ranks competitors by dividend yield and market cap
-6. Exports competitor_analysis.csv
+1. Scrapes Canadian REIT data from the WOWA Canadian REIT database.
+2. Extracts company information including ticker, company name,
+   market capitalization, dividend yield, and property classification.
+3. Filters the dataset to retain only major Canadian retail REIT competitors.
+4. Builds a competitor benchmarking dataset for SmartCentres REIT.
+5. Enriches the dataset using Yahoo Finance (yfinance) market data,
+   including current price, 52-week high/low, and one-year returns.
+6. Implements PR1 by generating market-based rankings and benchmarking metrics.
+7. Implements PR2 by classifying competitors into:
+      - Target Company (SmartCentres REIT)
+      - Primary Benchmark (RioCan REIT)
+      - Secondary Competitors
+8. Generates comparative visualizations and overall benchmark rankings.
+9. Exports the final benchmarking dataset as competitor_analysis.csv.
 ================================================================================
 """
 
