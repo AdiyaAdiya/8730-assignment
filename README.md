@@ -50,3 +50,7 @@ README.md
 - **Ruoyun Qi** – Stage 1: Company data acquisition and preprocessing
 - **Swathika Mahalakshmi Govindaraj** – Stage 2: Competitor benchmarking and market comparison
 - **Yuntong Wen** – Stage 3: Macroeconomic data acquisition and integration
+
+## Figures
+
+The Figures folder contains the key architecture diagrams and database screenshots used in the project report.
