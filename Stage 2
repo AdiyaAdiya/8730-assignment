@@ -5,7 +5,6 @@ BSMM-8730 — Canadian REIT Data Pipeline
 Target Company: SmartCentres REIT (SRU-UN.TO)
 ================================================================================
 
-"""
 WHAT THIS SCRIPT DOES:
 
 1. Scrapes Canadian REIT data from the WOWA Canadian REIT database.
@@ -13,16 +12,12 @@ WHAT THIS SCRIPT DOES:
    market capitalization, dividend yield, and property classification.
 3. Filters the dataset to retain only major Canadian retail REIT competitors.
 4. Builds a competitor benchmarking dataset for SmartCentres REIT.
-5. Enriches the dataset using Yahoo Finance (yfinance) market data,
-   including current price, 52-week high/low, and one-year returns.
-6. Implements PR1 by generating market-based rankings and benchmarking metrics.
-7. Implements PR2 by classifying competitors into:
-      - Target Company (SmartCentres REIT)
-      - Primary Benchmark (RioCan REIT)
-      - Secondary Competitors
-8. Generates comparative visualizations and overall benchmark rankings.
-9. Exports the final benchmarking dataset as competitor_analysis.csv.
-"""
+5. Enriches the dataset using Yahoo Finance market data.
+6. Implements PR1 benchmarking metrics.
+7. Implements PR2 competitor classification.
+8. Generates visualizations.
+9. Exports competitor_analysis.csv.
+
 ================================================================================
 """
 
@@ -142,13 +137,25 @@ for col in raw_reit_table.columns:
 
     if "ticker" in col_lower or "symbol" in col_lower:
         column_map[col] = "ticker"
-    elif "company" in col_lower or "name" in col_lower:
+
+    elif (
+        "company" in col_lower
+        or "name" in col_lower
+        or col_lower == "reit"
+    ):
         column_map[col] = "company"
+
     elif "market" in col_lower and "cap" in col_lower:
         column_map[col] = "market_cap"
+
     elif "dividend" in col_lower or "yield" in col_lower:
         column_map[col] = "dividend_yield"
-    elif "property" in col_lower or "sector" in col_lower or "type" in col_lower:
+
+    elif (
+        "property" in col_lower
+        or "sector" in col_lower
+        or "type" in col_lower
+    ):
         column_map[col] = "property_type"
 
 reit_data = raw_reit_table.rename(columns=column_map)
@@ -606,4 +613,3 @@ for bar in bars:
 
 plt.tight_layout()
 plt.show()
-
