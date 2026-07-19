@@ -397,7 +397,7 @@ print(
 
 
 # ------------------------------------------------------------------------------
-# IMPROVEMENT 2: Benchmark Category/Competitor Classification Enhancement
+# PULL REQUEST 2: Benchmark Category/Competitor Classification Enhancement
 # ------------------------------------------------------------------------------
 
 competitor_analysis["benchmark_type"] = (
